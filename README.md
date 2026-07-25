@@ -2,6 +2,8 @@
 
 Unofficial Rust SDK for [FunPay.com](https://funpay.com) — P2P gaming marketplace.
 
+Generated from [funpay-spec](https://github.com/vitkuz573/funpay-spec) using [webspec](https://github.com/vitkuz573/webspec).
+
 ## Features
 
 - **Builder pattern** — Configure clients with fluent API (base URL, auth, retry, rate limits)
@@ -120,57 +122,51 @@ match client.fetch_all_games().await {
 | `monitor` | `Monitor`, `MonitorEvent` |
 | `auth` | CSRF token extraction |
 
-## Code Generation
+## Architecture
 
-This SDK is generated from [funpay-spec](../funpay-spec/spec/funpay.yaml) using [funpay-codegen](../funpay-codegen/).
+```
+funpay-rs/
+├── src/
+│   ├── generated/       # Auto-generated from spec
+│   │   ├── client.rs
+│   │   ├── models.rs
+│   │   ├── parser.rs
+│   │   ├── error.rs
+│   │   └── lib.rs
+│   ├── auth.rs          # CSRF token extraction
+│   ├── cookies.rs       # Cookie persistence
+│   ├── middleware.rs     # Request middleware trait
+│   ├── retry.rs         # Exponential backoff & rate limiter
+│   ├── search.rs        # SearchQuery builder
+│   ├── stream.rs        # Async streaming (feature-gated)
+│   ├── export.rs        # JSON/CSV export (feature-gated)
+│   ├── ws.rs            # WebSocket support (feature-gated)
+│   ├── ua.rs            # User-Agent rotation
+│   ├── monitor.rs       # Real-time price monitoring
+│   └── lib.rs
+├── tests/
+├── build.sh             # Regenerate from spec
+└── Cargo.toml
+```
 
-### Regenerate from spec
+## Regenerate from Spec
 
-```sh
-# Using Makefile (recommended)
-make generate    # Generate only
-make build       # Generate + build
-make test        # Generate + test
-
-# Using build script
+```bash
+# Using build script (recommended)
 bash build.sh
 
-# Using codegen directly
-cd funpay-codegen
-cargo run -- --spec ../funpay-spec/spec/funpay.yaml --output ../funpay-rs/generated
+# Or using webspec directly
+webspec generate \
+    --spec ../funpay-spec/spec/funpay.yaml \
+    --target rust \
+    --output .
 ```
-
-### Project structure
-
-```
-funpay-spec/       → OpenAPI-like spec (funpay.yaml)
-funpay-codegen/    → Rust code generator
-funpay-rs/         → Generated + hand-written SDK
-  src/             → Hand-written modules (auth, middleware, retry, etc.)
-  generated/       → Auto-generated code (models, parser, client, error)
-  build.sh         → Generate + merge script
-```
-
-### Hand-written modules
-
-These modules are maintained manually in `src/` and copied into `generated/` by `build.sh`:
-
-- `auth.rs` — CSRF token extraction
-- `cookies.rs` — Cookie persistence
-- `middleware.rs` — Request middleware trait
-- `retry.rs` — Exponential backoff & rate limiter
-- `search.rs` — SearchQuery builder
-- `stream.rs` — Async streaming (feature-gated)
-- `export.rs` — JSON/CSV export (feature-gated)
-- `ws.rs` — WebSocket support (feature-gated)
-- `ua.rs` — User-Agent rotation
-- `monitor.rs` — Real-time price monitoring
 
 ## Testing
 
-Run the full test suite (71 tests):
+Run the full test suite (128 tests):
 
-```sh
+```bash
 cargo test
 ```
 
