@@ -1,6 +1,6 @@
 use scraper::{Html, Selector};
 use std::collections::HashMap;
-use crate::models::{User, Offer, Game};
+use crate::models::{User, Offer, Game, Currency};
 
 pub struct Parser;
 
@@ -63,7 +63,7 @@ impl Parser {
             server: self.extract_text(&document, ".tc-server").unwrap_or_default(),
             description: self.extract_text(&document, ".tc-desc").unwrap_or_default(),
             price: self.extract_price(html).unwrap_or(0.0),
-            currency: "RUB".to_string(),
+            currency: Currency::RUB,
             stock: self.extract_stock(html).unwrap_or(0),
             seller: crate::models::Seller {
                 name: self.extract_seller_name(html).unwrap_or_default(),
@@ -116,13 +116,8 @@ impl Parser {
                     .next()
                     .and_then(|e| e.text().next())
                     .map(|t| t.trim())
-                    .map(|sym| match sym {
-                        "$" => "USD",
-                        "€" => "EUR",
-                        _ => "RUB",
-                    })
-                    .unwrap_or("RUB")
-                    .to_string();
+                    .map(Currency::from_symbol)
+                    .unwrap_or(Currency::RUB);
 
                 let stock: u32 = el.select(&Selector::parse(".tc-amount").ok()?)
                     .next()
