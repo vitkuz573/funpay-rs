@@ -21,6 +21,17 @@ pub struct FunPayClient {
 
 impl FunPayClient {
     /// Creates a new unauthenticated client with default settings.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use funpay_rs::client::FunPayClient;
+    ///
+    /// # async fn example() -> Result<(), funpay_rs::error::FunPayError> {
+    /// let client = FunPayClient::new()?;
+    /// let games = client.fetch_all_games().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new() -> Result<Self, FunPayError> {
         Self::builder().build()
     }
@@ -44,6 +55,19 @@ impl FunPayClient {
     }
 
     /// Returns a new builder for configuring a [`FunPayClient`].
+    ///
+    /// # Example
+    /// ```no_run
+    /// use funpay_rs::client::FunPayClient;
+    ///
+    /// # async fn example() -> Result<(), funpay_rs::error::FunPayError> {
+    /// let client = FunPayClient::builder()
+    ///     .base_url("https://example.com")
+    ///     .timeout(60)
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn builder() -> FunPayClientBuilder {
         FunPayClientBuilder::default()
     }
@@ -176,12 +200,36 @@ pub struct FunPayClientBuilder {
 
 impl FunPayClientBuilder {
     /// Sets the base URL for all requests.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use funpay_rs::client::FunPayClient;
+    ///
+    /// # async fn example() -> Result<(), funpay_rs::error::FunPayError> {
+    /// let client = FunPayClient::builder()
+    ///     .base_url("https://funpay.com")
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn base_url(mut self, url: &str) -> Self {
         self.base_url = Some(url.to_string());
         self
     }
 
     /// Sets the golden key for authentication.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use funpay_rs::client::FunPayClient;
+    ///
+    /// # async fn example() -> Result<(), funpay_rs::error::FunPayError> {
+    /// let client = FunPayClient::builder()
+    ///     .golden_key("your-golden-key-here")
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn golden_key(mut self, key: &str) -> Self {
         self.golden_key = Some(key.to_string());
         self

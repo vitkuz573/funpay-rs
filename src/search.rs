@@ -33,6 +33,21 @@ pub struct SearchQuery {
 
 impl SearchQuery {
     /// Creates a new search query with the given keyword.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use funpay_rs::search::SearchQuery;
+    /// use funpay_rs::client::FunPayClient;
+    ///
+    /// # async fn example() -> Result<(), funpay_rs::error::FunPayError> {
+    /// let client = FunPayClient::new()?;
+    /// let offers = SearchQuery::new("CS2 skins")
+    ///     .max_price(100.0)
+    ///     .execute(&client)
+    ///     .await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new(keyword: &str) -> Self {
         Self {
             keyword: keyword.to_string(),
@@ -46,12 +61,43 @@ impl SearchQuery {
     }
 
     /// Sets the maximum price filter.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use funpay_rs::search::SearchQuery;
+    /// use funpay_rs::client::FunPayClient;
+    ///
+    /// # async fn example() -> Result<(), funpay_rs::error::FunPayError> {
+    /// let client = FunPayClient::new()?;
+    /// let offers = SearchQuery::new("Dota 2 items")
+    ///     .max_price(50.0)
+    ///     .execute(&client)
+    ///     .await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn max_price(mut self, price: f64) -> Self {
         self.max_price = Some(price);
         self
     }
 
     /// Sets the currency filter.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use funpay_rs::search::SearchQuery;
+    /// use funpay_rs::models::Currency;
+    /// use funpay_rs::client::FunPayClient;
+    ///
+    /// # async fn example() -> Result<(), funpay_rs::error::FunPayError> {
+    /// let client = FunPayClient::new()?;
+    /// let offers = SearchQuery::new("WoW Gold")
+    ///     .currency(Currency::USD)
+    ///     .execute(&client)
+    ///     .await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn currency(mut self, currency: Currency) -> Self {
         self.currency = Some(currency);
         self
@@ -70,18 +116,67 @@ impl SearchQuery {
     }
 
     /// Filters results to only include offers from online sellers.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use funpay_rs::search::SearchQuery;
+    /// use funpay_rs::client::FunPayClient;
+    ///
+    /// # async fn example() -> Result<(), funpay_rs::error::FunPayError> {
+    /// let client = FunPayClient::new()?;
+    /// let offers = SearchQuery::new("Fortnite accounts")
+    ///     .online_only()
+    ///     .execute(&client)
+    ///     .await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn online_only(mut self) -> Self {
         self.online_only = true;
         self
     }
 
     /// Sets the minimum stock quantity filter.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use funpay_rs::search::SearchQuery;
+    /// use funpay_rs::client::FunPayClient;
+    ///
+    /// # async fn example() -> Result<(), funpay_rs::error::FunPayError> {
+    /// let client = FunPayClient::new()?;
+    /// let offers = SearchQuery::new("Minecraft items")
+    ///     .min_stock(10)
+    ///     .execute(&client)
+    ///     .await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn min_stock(mut self, stock: u32) -> Self {
         self.min_stock = Some(stock);
         self
     }
 
     /// Executes the search query against FunPay and returns matching offers.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use funpay_rs::search::SearchQuery;
+    /// use funpay_rs::models::Currency;
+    /// use funpay_rs::client::FunPayClient;
+    ///
+    /// # async fn example() -> Result<(), funpay_rs::error::FunPayError> {
+    /// let client = FunPayClient::new()?;
+    /// let offers = SearchQuery::new("Rust skins")
+    ///     .max_price(200.0)
+    ///     .currency(Currency::USD)
+    ///     .online_only()
+    ///     .min_stock(5)
+    ///     .execute(&client)
+    ///     .await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn execute(&self, client: &FunPayClient) -> Result<Vec<Offer>, FunPayError> {
         let max_price = self.max_price.unwrap_or(f64::MAX);
         let mut offers = client

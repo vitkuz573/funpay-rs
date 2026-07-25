@@ -2,8 +2,8 @@ use scraper::{Html, Selector};
 use std::collections::HashMap;
 use crate::error::ParseError;
 use crate::models::{
-    User, Offer, Game, GameCategory, Currency, OfferId, LotId, UserId, GameId, Server, Order, Chat,
-    ChatMessage, Review,
+    User, Offer, Game, GameCategory, Currency, OfferId, LotId, UserId, GameId, Server, Order,
+    OrderStatus, Chat, ChatMessage, Review,
 };
 
 /// HTML parser for FunPay pages.
@@ -261,9 +261,102 @@ impl Parser {
             .collect()
     }
 
-    /// Parses an orders listing page. Currently returns an empty list (stub).
-    pub fn parse_orders_from_page(&self, _html: &str) -> Vec<Order> {
-        Vec::new()
+    /// Parses an orders listing page into a list of [`Order`] models.
+    ///
+    /// Works with both purchases (`/orders/`) and sales (`/orders/trade`) pages.
+    pub fn parse_orders_from_page(&self, html: &str) -> Vec<Order> {
+        let document = Html::parse_document(html);
+        let selector = Selector::parse("a.tc-item").unwrap();
+
+        document
+            .select(&selector)
+            .filter_map(|el| {
+                let href = el.value().attr("href")?;
+                let order_id = href
+                    .split('/')
+                    .filter(|s| !s.is_empty())
+                    .last()?
+                    .to_string();
+
+                let status_class = el
+                    .select(&Selector::parse("div.tc-status").ok()?)
+                    .next()?
+                    .value()
+                    .attr("class")?
+                    .to_string();
+
+                let status = parse_order_status(&status_class);
+
+                let price_text = el
+                    .select(&Selector::parse("div.tc-price").ok()?)
+                    .next()?
+                    .text()
+                    .collect::<String>();
+                let price = parse_price_from_text(&price_text);
+                let currency = detect_currency_from_text(&price_text);
+
+                let date_text = el
+                    .select(&Selector::parse("div.tc-date-time").ok()?)
+                    .next()
+                    .map(|e| e.text().collect::<String>())
+                    .unwrap_or_default();
+
+                let _title = el
+                    .select(&Selector::parse("div.order-desc > div").ok()?)
+                    .next()
+                    .map(|e| e.text().collect::<String>())
+                    .unwrap_or_default();
+
+                let _category_text = el
+                    .select(&Selector::parse("div.text-muted").ok()?)
+                    .next()
+                    .map(|e| e.text().collect::<String>())
+                    .unwrap_or_default();
+
+                let counterparty_name = el
+                    .select(&Selector::parse("div.media-user-name").ok()?)
+                    .next()
+                    .map(|e| e.text().collect::<String>())
+                    .unwrap_or_default();
+
+                let online = el
+                    .select(&Selector::parse("div.media-user").ok()?)
+                    .next()
+                    .map(|e| {
+                        e.value()
+                            .attr("class")
+                            .map(|c| c.contains("online"))
+                            .unwrap_or(false)
+                    })
+                    .unwrap_or(false);
+
+                let created_at = parse_datetime_from_text(&date_text);
+
+                Some(Order {
+                    order_id,
+                    offer_id: OfferId(String::new()),
+                    seller: crate::models::Seller {
+                        user_id: UserId(String::new()),
+                        name: counterparty_name.clone(),
+                        rating: 0.0,
+                        reviews: 0,
+                        online,
+                    },
+                    buyer: crate::models::Seller {
+                        user_id: UserId(String::new()),
+                        name: String::new(),
+                        rating: 0.0,
+                        reviews: 0,
+                        online: false,
+                    },
+                    price,
+                    currency,
+                    status,
+                    created_at,
+                    completed_at: None,
+                })
+            })
+            .collect()
     }
 
     /// Parses a chats listing page. Currently returns an empty list (stub).
@@ -276,8 +369,204 @@ impl Parser {
         Vec::new()
     }
 
-    /// Parses reviews from a user profile page. Currently returns an empty list (stub).
-    pub fn parse_reviews_from_page(&self, _html: &str) -> Vec<Review> {
-        Vec::new()
+    /// Parses reviews from a user profile page into a list of [`Review`] models.
+    pub fn parse_reviews_from_page(&self, html: &str) -> Vec<Review> {
+        let document = Html::parse_document(html);
+        let selector = Selector::parse("div.review-container").unwrap();
+
+        document
+            .select(&selector)
+            .filter_map(|review_div| {
+                let date_sel = Selector::parse("div.review-item-date").ok()?;
+                let date_text = review_div.select(&date_sel).next()?.text().collect::<String>();
+
+                let text_sel = Selector::parse("div.review-item-text").ok()?;
+                let text = review_div
+                    .select(&text_sel)
+                    .next()
+                    .map(|e| e.text().collect::<String>())
+                    .unwrap_or_default();
+
+                let mut rating: f64 = 0.0;
+                for i in 1..=5 {
+                    let sel_str = format!("div.rating{}", i);
+                    if let Ok(sel) = Selector::parse(&sel_str) {
+                        if review_div.select(&sel).next().is_some() {
+                            rating = i as f64;
+                            break;
+                        }
+                    };
+                }
+
+                let order_sel = Selector::parse("div.review-item-order").ok()?;
+                let order_id_text = review_div
+                    .select(&order_sel)
+                    .next()
+                    .map(|e| e.text().collect::<String>())
+                    .unwrap_or_default();
+                let order_id = order_id_text
+                    .split('#')
+                    .last()
+                    .map(|s| s.trim().to_string());
+
+                let name_sel = Selector::parse("div.review-item-user div.media-user-name").ok()?;
+                let reviewer_name = review_div.select(&name_sel).next()?.text().collect::<String>();
+
+                let link_sel = Selector::parse("div.review-item-user a").ok()?;
+                let link_el = review_div.select(&link_sel).next()?;
+                let href = link_el.value().attr("href")?;
+                let reviewer_id = href
+                    .split('/')
+                    .filter(|s| !s.is_empty())
+                    .nth(1)?
+                    .to_string();
+
+                let created_at = parse_datetime_from_text(&date_text);
+
+                Some(Review {
+                    review_id: order_id.clone().unwrap_or_default(),
+                    reviewer: crate::models::Seller {
+                        user_id: UserId(reviewer_id),
+                        name: reviewer_name,
+                        rating: 0.0,
+                        reviews: 0,
+                        online: false,
+                    },
+                    rating,
+                    text: if text.is_empty() { None } else { Some(text) },
+                    created_at,
+                    order_id,
+                })
+            })
+            .collect()
     }
+
+    /// Extracts the next page URL from a listing page.
+    ///
+    /// Checks for both `input[name="continue"]` (used on orders/reviews pages)
+    /// and standard pagination links.
+    pub fn extract_next_page_url(html: &str) -> Option<String> {
+        let document = Html::parse_document(html);
+
+        // Check for hidden continue input (orders, reviews pages)
+        let continue_input =
+            Selector::parse(r#"input[type="hidden"][name="continue"]"#).ok()?;
+        if let Some(input) = document.select(&continue_input).next() {
+            if let Some(value) = input.value().attr("value") {
+                if !value.is_empty() {
+                    return Some(value.to_string());
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Parses game subcategories from a game page.
+    ///
+    /// Returns a list of `(name, url)` tuples for each subcategory.
+    pub fn parse_subcategories(html: &str) -> Vec<(String, String)> {
+        let document = Html::parse_document(html);
+
+        // Counter items on game pages (chips/lots/other subcategories)
+        let counter_selector = Selector::parse("a.counter-item").unwrap();
+        let mut results: Vec<(String, String)> = document
+            .select(&counter_selector)
+            .filter_map(|el| {
+                let href = el.value().attr("href")?;
+                let param_sel = Selector::parse("div.counter-param").ok()?;
+                let name = el.select(&param_sel).next()?.text().collect::<String>();
+                let base = "https://funpay.com";
+                let full_url = if href.starts_with("http") {
+                    href.to_string()
+                } else {
+                    format!("{}{}", base, href)
+                };
+                Some((name, full_url))
+            })
+            .collect();
+
+        // Also check for inline subcategory links (e.g. on lots pages with RU/EU/Free tabs)
+        let inline_selector =
+            Selector::parse("ul.list-inline.text-bold li a, ul.list-inline li a").unwrap();
+        for el in document.select(&inline_selector) {
+            let href = match el.value().attr("href") {
+                Some(h) => h,
+                None => continue,
+            };
+            if !href.contains("/chips/") && !href.contains("/lots/") {
+                continue;
+            }
+            let name = el.text().collect::<String>();
+            if name.is_empty() {
+                continue;
+            }
+            let base = "https://funpay.com";
+            let full_url = if href.starts_with("http") {
+                href.to_string()
+            } else {
+                format!("{}{}", base, href)
+            };
+            // Avoid duplicates
+            if !results.iter().any(|(_, url)| url == &full_url) {
+                results.push((name, full_url));
+            }
+        }
+
+        results
+    }
+}
+
+/// Parses an order status from a CSS class string.
+fn parse_order_status(class: &str) -> OrderStatus {
+    if class.contains("status-success") || class.contains("tc-status-1") {
+        OrderStatus::Completed
+    } else if class.contains("status-cancel") || class.contains("tc-status-2") {
+        OrderStatus::Cancelled
+    } else if class.contains("status-dispute") || class.contains("tc-status-3") {
+        OrderStatus::Disputed
+    } else if class.contains("status-active") || class.contains("tc-status-0") {
+        OrderStatus::Active
+    } else if class.contains("status-pending") {
+        OrderStatus::Pending
+    } else {
+        OrderStatus::Unknown(class.to_string())
+    }
+}
+
+/// Parses a price from text containing digits and dots.
+fn parse_price_from_text(text: &str) -> f64 {
+    let cleaned: String = text
+        .chars()
+        .filter(|c| c.is_ascii_digit() || *c == '.')
+        .collect();
+    cleaned.parse().unwrap_or(0.0)
+}
+
+/// Detects currency from text containing currency symbols.
+fn detect_currency_from_text(text: &str) -> Currency {
+    if text.contains('$') {
+        Currency::USD
+    } else if text.contains('€') {
+        Currency::EUR
+    } else {
+        Currency::RUB
+    }
+}
+
+/// Parses a datetime from FunPay text format.
+fn parse_datetime_from_text(text: &str) -> Option<chrono::NaiveDateTime> {
+    let text = text.trim();
+    // Try common formats: "22.07.26 10:22" or "22 July, 10:22:21"
+    for fmt in &[
+        "%d.%m.%y %H:%M",
+        "%d.%m.%Y %H:%M",
+        "%d %B, %H:%M:%S",
+        "%d %B %Y, %H:%M:%S",
+    ] {
+        if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(text, fmt) {
+            return Some(dt);
+        }
+    }
+    None
 }

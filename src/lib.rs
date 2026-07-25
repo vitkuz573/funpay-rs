@@ -6,3 +6,4 @@ pub mod parser;
 pub mod search;
 pub mod monitor;
 pub mod retry;
+pub mod stream;
