@@ -130,6 +130,10 @@ cargo test
 
 Tests include mock HTTP layer tests, parser edge cases, search filtering, auth, monitor events, and integration tests.
 
+## Consumers
+
+- [funpay-deal-finder](https://github.com/vitkuz573/funpay-deal-finder) — CLI tool for finding the best deals on FunPay with configurable filters
+
 ## License
 
 MIT
