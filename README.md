@@ -18,10 +18,10 @@ Generated from [funpay-spec](https://github.com/vitkuz573/funpay-spec) using [we
 ## Usage
 
 ```rust
-use funpay_rs::client::FunPayClient;
+use funpay_sdk::client::FunPayClient;
 
 #[tokio::main]
-async fn main() -> Result<(), funpay_rs::error::FunPayError> {
+async fn main() -> Result<(), funpay_sdk::error::FunPayError> {
     let client = FunPayClient::new()?;
 
     let games = client.fetch_all_games().await?;
@@ -37,8 +37,8 @@ async fn main() -> Result<(), funpay_rs::error::FunPayError> {
 ## Builder Pattern
 
 ```rust
-use funpay_rs::client::FunPayClient;
-use funpay_rs::retry::{RetryPolicy, RateLimiter};
+use funpay_sdk::client::FunPayClient;
+use funpay_sdk::retry::{RetryPolicy, RateLimiter};
 
 let client = FunPayClient::builder()
     .base_url("https://funpay.com")
@@ -59,9 +59,9 @@ let client = FunPayClient::builder()
 ## SearchQuery
 
 ```rust
-use funpay_rs::client::FunPayClient;
-use funpay_rs::search::SearchQuery;
-use funpay_rs::models::Currency;
+use funpay_sdk::client::FunPayClient;
+use funpay_sdk::search::SearchQuery;
+use funpay_sdk::models::Currency;
 
 let client = FunPayClient::new()?;
 let offers = SearchQuery::new("CS2 skins")
@@ -76,8 +76,8 @@ let offers = SearchQuery::new("CS2 skins")
 ## Streaming
 
 ```rust
-use funpay_rs::client::FunPayClient;
-use funpay_rs::stream::search_stream;
+use funpay_sdk::client::FunPayClient;
+use funpay_sdk::stream::search_stream;
 use futures::StreamExt;
 
 let client = FunPayClient::new()?;
@@ -91,7 +91,7 @@ while let Some(offer) = stream.next().await {
 ## Error Handling
 
 ```rust
-use funpay_rs::error::FunPayError;
+use funpay_sdk::error::FunPayError;
 
 match client.fetch_all_games().await {
     Ok(games) => { /* ... */ }
