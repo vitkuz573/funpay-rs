@@ -12,5 +12,5 @@ fn test_parse_offer_page() {
     "#;
     let parser = Parser::new();
     let offer = parser.parse_offer(html, OfferId("12345".to_string()));
-    assert!(offer.is_some());
+    assert!(offer.is_ok());
 }
