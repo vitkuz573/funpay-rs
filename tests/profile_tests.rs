@@ -1,4 +1,5 @@
 use funpay_rs::parser::Parser;
+use funpay_rs::models::UserId;
 
 #[test]
 fn test_parse_user_profile() {
@@ -12,7 +13,7 @@ fn test_parse_user_profile() {
     </div>
     "#;
     let parser = Parser::new();
-    let user = parser.parse_user(html, "999".to_string());
+    let user = parser.parse_user(html, UserId("999".to_string()));
     assert!(user.is_some());
     let user = user.unwrap();
     assert_eq!(user.username, "Gamer123");
@@ -32,7 +33,7 @@ fn test_parse_user_offline() {
     </div>
     "#;
     let parser = Parser::new();
-    let user = parser.parse_user(html, "888".to_string());
+    let user = parser.parse_user(html, UserId("888".to_string()));
     assert!(user.is_some());
     assert!(!user.unwrap().online);
 }

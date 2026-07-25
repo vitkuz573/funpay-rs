@@ -1,4 +1,5 @@
 use funpay_rs::parser::Parser;
+use funpay_rs::models::{OfferId, Server};
 
 #[test]
 fn test_parse_offers_from_page() {
@@ -15,7 +16,7 @@ fn test_parse_offers_from_page() {
     let offers = parser.parse_offers_from_page(html);
     assert_eq!(offers.len(), 1);
     assert_eq!(offers[0].price, 150.0);
-    assert_eq!(offers[0].offer_id, "123");
+    assert_eq!(offers[0].offer_id, OfferId("123".to_string()));
 }
 
 #[test]
@@ -39,8 +40,8 @@ fn test_parse_multiple_offers() {
     let parser = Parser::new();
     let offers = parser.parse_offers_from_page(html);
     assert_eq!(offers.len(), 2);
-    assert_eq!(offers[0].server, "EU");
-    assert_eq!(offers[1].server, "US");
+    assert_eq!(offers[0].server, Server("EU".to_string()));
+    assert_eq!(offers[1].server, Server("US".to_string()));
     assert!(offers[0].seller.online);
     assert!(!offers[1].seller.online);
 }

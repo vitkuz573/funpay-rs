@@ -1,6 +1,6 @@
 use scraper::{Html, Selector};
 use std::collections::HashMap;
-use crate::models::{User, Offer, Game, Currency};
+use crate::models::{User, Offer, Game, GameCategory, Currency, OfferId, LotId, UserId, GameId, Server};
 
 pub struct Parser;
 
@@ -13,11 +13,11 @@ impl Parser {
         element.text().next().map(|s| s.trim().to_string())
     }
 
-    pub fn extract_offer_ids(&self, html: &str) -> Vec<String> {
+    pub fn extract_offer_ids(&self, html: &str) -> Vec<OfferId> {
         let document = Html::parse_document(html);
         let selector = Selector::parse("[data-offer-id]").unwrap();
         document.select(&selector)
-            .filter_map(|el| el.value().attr("data-offer-id").map(|s| s.to_string()))
+            .filter_map(|el| el.value().attr("data-offer-id").map(|s| OfferId(s.to_string())))
             .collect()
     }
 
@@ -37,7 +37,7 @@ impl Parser {
         element.text().next().map(|s| s.to_string())
     }
 
-    pub fn parse_user(&self, html: &str, user_id: String) -> Option<User> {
+    pub fn parse_user(&self, html: &str, user_id: UserId) -> Option<User> {
         let document = Html::parse_document(html);
         Some(User {
             user_id,
@@ -55,12 +55,12 @@ impl Parser {
         })
     }
 
-    pub fn parse_offer(&self, html: &str, offer_id: String) -> Option<Offer> {
+    pub fn parse_offer(&self, html: &str, offer_id: OfferId) -> Option<Offer> {
         let document = Html::parse_document(html);
         Some(Offer {
             offer_id,
-            lot_id: String::new(),
-            server: self.extract_text(&document, ".tc-server").unwrap_or_default(),
+            lot_id: LotId(String::new()),
+            server: Server(self.extract_text(&document, ".tc-server").unwrap_or_default()),
             description: self.extract_text(&document, ".tc-desc").unwrap_or_default(),
             price: self.extract_price(html).unwrap_or(0.0),
             currency: Currency::RUB,
@@ -88,10 +88,11 @@ impl Parser {
                 let href = el.value().attr("href")?;
                 let name = el.text().next()?.to_string();
                 Some(Game {
-                    id: href.split('/').nth(2)?.to_string(),
+                    id: GameId(href.split('/').nth(2)?.to_string()),
                     name,
                     chips_url: if href.contains("/chips/") { Some(href.to_string()) } else { None },
                     lots_url: if href.contains("/lots/") { Some(href.to_string()) } else { None },
+                    category: GameCategory::from_url(href),
                 })
             })
             .collect()
@@ -103,7 +104,7 @@ impl Parser {
         document.select(&selector)
             .filter_map(|el| {
                 let href = el.value().attr("href")?;
-                let offer_id = href.split("id=").last()?.to_string();
+                let offer_id = OfferId(href.split("id=").last()?.to_string());
                 let online = el.value().attr("data-online") == Some("1");
 
                 let price = el.select(&Selector::parse(".tc-price div").ok()?)
@@ -138,8 +139,8 @@ impl Parser {
                     .parse()
                     .unwrap_or(0);
 
-                let server_name = el.select(&Selector::parse(".tc-server").ok()?)
-                    .next().map(|e| e.text().collect::<String>()).unwrap_or_default();
+                let server_name = Server(el.select(&Selector::parse(".tc-server").ok()?)
+                    .next().map(|e| e.text().collect::<String>()).unwrap_or_default());
 
                 let side = el.select(&Selector::parse(".tc-side").ok()?)
                     .next().map(|e| e.text().collect::<String>()).unwrap_or_default();
@@ -150,14 +151,14 @@ impl Parser {
                 let description = if !desc_text.is_empty() {
                     desc_text
                 } else if side.is_empty() {
-                    server_name.clone()
+                    server_name.to_string()
                 } else {
                     format!("{} / {}", server_name, side)
                 };
 
                 Some(Offer {
                     offer_id,
-                    lot_id: String::new(),
+                    lot_id: LotId(String::new()),
                     server: server_name,
                     description,
                     price,

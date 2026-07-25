@@ -1,11 +1,12 @@
 use funpay_rs::parser::Parser;
+use funpay_rs::models::OfferId;
 
 #[test]
 fn test_parse_lot_offer_id() {
     let html = r#"<a class="tc-item" data-offer-id="12345">"#;
     let parser = Parser::new();
     let ids = parser.extract_offer_ids(html);
-    assert!(ids.contains(&"12345".to_string()));
+    assert!(ids.contains(&OfferId("12345".to_string())));
 }
 
 #[test]

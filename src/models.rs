@@ -1,5 +1,42 @@
 use serde::{Deserialize, Serialize};
 
+macro_rules! define_id_type {
+    ($name:ident) => {
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        pub struct $name(pub String);
+
+        impl $name {
+            pub fn as_str(&self) -> &str {
+                &self.0
+            }
+        }
+
+        impl std::fmt::Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        impl From<String> for $name {
+            fn from(s: String) -> Self {
+                Self(s)
+            }
+        }
+
+        impl From<&str> for $name {
+            fn from(s: &str) -> Self {
+                Self(s.to_string())
+            }
+        }
+    };
+}
+
+define_id_type!(OfferId);
+define_id_type!(LotId);
+define_id_type!(UserId);
+define_id_type!(GameId);
+define_id_type!(Server);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Currency {
     RUB,
@@ -31,10 +68,55 @@ impl std::fmt::Display for Currency {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum GameCategory {
+    Chips,
+    Lots,
+}
+
+impl GameCategory {
+    pub fn from_url(url: &str) -> Option<Self> {
+        if url.contains("/chips/") {
+            Some(GameCategory::Chips)
+        } else if url.contains("/lots/") {
+            Some(GameCategory::Lots)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_path(&self) -> &'static str {
+        match self {
+            GameCategory::Chips => "chips",
+            GameCategory::Lots => "lots",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum OnlineStatus {
+    Online,
+    Offline,
+}
+
+impl OnlineStatus {
+    pub fn from_str(s: &str) -> Self {
+        if s == "online" {
+            OnlineStatus::Online
+        } else {
+            OnlineStatus::Offline
+        }
+    }
+
+    pub fn is_online(&self) -> bool {
+        matches!(self, OnlineStatus::Online)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Lot {
-    pub offer_id: String,
-    pub server: String,
+    pub offer_id: OfferId,
+    pub server: Server,
     pub description: String,
     pub price: f64,
     pub currency: Currency,
@@ -52,15 +134,16 @@ pub struct Seller {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Game {
-    pub id: String,
+    pub id: GameId,
     pub name: String,
     pub chips_url: Option<String>,
     pub lots_url: Option<String>,
+    pub category: Option<GameCategory>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
-    pub user_id: String,
+    pub user_id: UserId,
     pub username: String,
     pub rating: f64,
     pub reviews: u32,
@@ -70,9 +153,9 @@ pub struct User {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Offer {
-    pub offer_id: String,
-    pub lot_id: String,
-    pub server: String,
+    pub offer_id: OfferId,
+    pub lot_id: LotId,
+    pub server: Server,
     pub description: String,
     pub price: f64,
     pub currency: Currency,

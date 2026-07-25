@@ -1,14 +1,15 @@
 use std::collections::HashMap;
+use crate::models::OfferId;
 
 #[derive(Debug, Clone)]
 pub enum MonitorEvent {
-    PriceChanged { offer_id: String, old_price: f64, new_price: f64 },
-    NewOffer { offer_id: String },
-    OfferRemoved { offer_id: String },
+    PriceChanged { offer_id: OfferId, old_price: f64, new_price: f64 },
+    NewOffer { offer_id: OfferId },
+    OfferRemoved { offer_id: OfferId },
 }
 
 pub struct Monitor {
-    seen_offers: HashMap<String, f64>,
+    seen_offers: HashMap<OfferId, f64>,
 }
 
 impl Monitor {
@@ -16,9 +17,9 @@ impl Monitor {
         Self { seen_offers: HashMap::new() }
     }
     
-    pub fn check_for_changes(&mut self, offers: Vec<(String, f64)>) -> Vec<MonitorEvent> {
+    pub fn check_for_changes(&mut self, offers: Vec<(OfferId, f64)>) -> Vec<MonitorEvent> {
         let mut events = Vec::new();
-        let current: HashMap<String, f64> = offers.into_iter().collect();
+        let current: HashMap<OfferId, f64> = offers.into_iter().collect();
         
         for (id, price) in &current {
             if let Some(old_price) = self.seen_offers.get(id) {

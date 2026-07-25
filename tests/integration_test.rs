@@ -1,12 +1,12 @@
 use funpay_rs::client::FunPayClient;
-use funpay_rs::error::FunPayError;
+use funpay_rs::error::{FunPayError, ParseError};
 use funpay_rs::parser::Parser;
 use funpay_rs::monitor::Monitor;
 
 #[test]
 fn test_error_display() {
-    let error = FunPayError::Parse("test error".to_string());
-    assert_eq!(error.to_string(), "Parse error: test error");
+    let error = FunPayError::from(ParseError::MissingField("test field".to_string()));
+    assert_eq!(error.to_string(), "parse error: missing field: test field");
 }
 
 #[test]

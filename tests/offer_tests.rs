@@ -1,4 +1,5 @@
 use funpay_rs::parser::Parser;
+use funpay_rs::models::OfferId;
 
 #[test]
 fn test_parse_offer_page() {
@@ -10,6 +11,6 @@ fn test_parse_offer_page() {
     <div class="media-user-name">Seller1</div>
     "#;
     let parser = Parser::new();
-    let offer = parser.parse_offer(html, "12345".to_string());
+    let offer = parser.parse_offer(html, OfferId("12345".to_string()));
     assert!(offer.is_some());
 }
