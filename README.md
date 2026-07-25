@@ -4,11 +4,14 @@ Unofficial Rust SDK for [FunPay.com](https://funpay.com) — P2P gaming marketpl
 
 ## Features
 
-- **Client** — HTTP client with cookie support
-- **Parser** — Extract offers, games, users from HTML
-- **Auth** — CSRF token extraction
-- **Monitor** — Track price changes in real-time
-- **Search** — Find offers across all categories by keyword
+- **Builder pattern** — Configure clients with fluent API (base URL, auth, retry, rate limits)
+- **SearchQuery** — Filtered search with price, currency, server, stock, and online-only filters
+- **Streaming** — Real-time offer discovery via async streams
+- **Retry with backoff** — Exponential backoff for transient failures (5xx, 429)
+- **Rate limiting** — Token-bucket rate limiter respects `Retry-After` headers
+- **Models** — Typed `Offer`, `Order`, `Chat`, `ChatMessage`, `Review`, `Game`, `Seller`, `User`
+- **Typed errors** — Structured `FunPayError` enum with `Parse`, `Auth`, `RateLimited`, `Timeout`, `Blocked`
+- **Mock testing** — Mock HTTP layer for offline unit tests
 
 ## Usage
 
@@ -16,59 +19,116 @@ Unofficial Rust SDK for [FunPay.com](https://funpay.com) — P2P gaming marketpl
 use funpay_rs::client::FunPayClient;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Default base URL (https://funpay.com)
+async fn main() -> Result<(), funpay_rs::error::FunPayError> {
     let client = FunPayClient::new()?;
-    
-    // Or custom base URL
-    let client = FunPayClient::with_base_url("https://custom.funpay.com")?;
-    
-    // With authentication
-    let client = FunPayClient::with_auth("your_golden_key")?;
-    
-    // Fetch all games
+
     let games = client.fetch_all_games().await?;
     println!("Found {} games", games.len());
-    
-    // Fetch offers from a category
+
     let offers = client.fetch_category_offers("/chips/6/").await?;
     println!("Found {} offers", offers.len());
-    
-    // Search across all categories
-    let results = client.search_all_categories("kimi", 3000.0).await?;
-    println!("Found {} matching offers", results.len());
-    
+
     Ok(())
 }
 ```
 
-## Examples
+## Builder Pattern
 
 ```rust
 use funpay_rs::client::FunPayClient;
-use funpay_rs::monitor::{Monitor, MonitorEvent};
+use funpay_rs::retry::{RetryPolicy, RateLimiter};
+
+let client = FunPayClient::builder()
+    .base_url("https://funpay.com")
+    .golden_key("your-golden-key")
+    .timeout(60)
+    .retry_policy(RetryPolicy {
+        max_retries: 5,
+        base_delay_ms: 500,
+        max_delay_ms: 30_000,
+    })
+    .rate_limiter(RateLimiter {
+        requests_per_second: 1.0,
+        min_interval_ms: 1000,
+    })
+    .build()?;
+```
+
+## SearchQuery
+
+```rust
+use funpay_rs::client::FunPayClient;
+use funpay_rs::search::SearchQuery;
+use funpay_rs::models::Currency;
 
 let client = FunPayClient::new()?;
-let mut monitor = Monitor::new();
+let offers = SearchQuery::new("CS2 skins")
+    .max_price(100.0)
+    .currency(Currency::USD)
+    .online_only()
+    .min_stock(5)
+    .execute(&client)
+    .await?;
+```
 
-// Track price changes
-let offers = vec![("1".to_string(), 100.0), ("2".to_string(), 200.0)];
-let events = monitor.check_for_changes(offers);
+## Streaming
 
-for event in &events {
-    match event {
-        MonitorEvent::PriceChanged { offer_id, old_price, new_price } => {
-            println!("{}: {} -> {}", offer_id, old_price, new_price);
-        }
-        MonitorEvent::NewOffer { offer_id } => {
-            println!("New offer: {}", offer_id);
-        }
-        MonitorEvent::OfferRemoved { offer_id } => {
-            println!("Removed: {}", offer_id);
-        }
-    }
+```rust
+use funpay_rs::client::FunPayClient;
+use funpay_rs::stream::search_stream;
+use futures::StreamExt;
+
+let client = FunPayClient::new()?;
+let mut stream = search_stream(&client, "Rust skins", 500.0);
+
+while let Some(offer) = stream.next().await {
+    println!("{}: {} {}", offer.seller.name, offer.price, offer.currency);
 }
 ```
+
+## Error Handling
+
+```rust
+use funpay_rs::error::FunPayError;
+
+match client.fetch_all_games().await {
+    Ok(games) => { /* ... */ }
+    Err(FunPayError::RateLimited { retry_after }) => {
+        eprintln!("Rate limited, retry after {:?}", retry_after);
+    }
+    Err(FunPayError::Timeout(dur)) => {
+        eprintln!("Request timed out after {:?}", dur);
+    }
+    Err(FunPayError::Blocked(reason)) => {
+        eprintln!("Blocked: {}", reason);
+    }
+    Err(e) => eprintln!("Error: {}", e),
+}
+```
+
+## API Reference
+
+| Module | Types |
+|--------|-------|
+| `client` | `FunPayClient`, `FunPayClientBuilder` |
+| `search` | `SearchQuery` |
+| `stream` | `search_stream()` |
+| `models` | `Offer`, `Order`, `OrderStatus`, `Chat`, `ChatMessage`, `Review`, `Game`, `Seller`, `User`, `Currency`, `Lot`, `OnlineStatus` |
+| `error` | `FunPayError`, `ParseError`, `AuthError` |
+| `retry` | `RetryPolicy`, `RateLimiter` |
+| `parser` | `Parser` |
+| `monitor` | `Monitor`, `MonitorEvent` |
+| `auth` | CSRF token extraction |
+
+## Testing
+
+Run the full test suite (71 tests):
+
+```sh
+cargo test
+```
+
+Tests include mock HTTP layer tests, parser edge cases, search filtering, auth, monitor events, and integration tests.
 
 ## License
 
