@@ -1,5 +1,7 @@
 use funpay_rs::parser::Parser;
 use funpay_rs::models::{OfferId, UserId};
+use rust_decimal::Decimal;
+use std::str::FromStr;
 
 #[test]
 fn test_empty_html_response() {
@@ -79,7 +81,7 @@ fn test_price_with_thousand_separator() {
     let offers = parser.parse_offers_from_page(html);
     assert_eq!(offers.len(), 1);
     // "1 250" -> filtered to "1250" -> 1250.0
-    assert_eq!(offers[0].price, 1250.0);
+    assert_eq!(offers[0].price, Decimal::from_str("1250").unwrap());
 }
 
 #[test]
@@ -114,7 +116,7 @@ fn test_offer_with_special_characters_in_price() {
     let parser = Parser::new();
     let offers = parser.parse_offers_from_page(html);
     assert_eq!(offers.len(), 1);
-    assert_eq!(offers[0].price, 100.0);
+    assert_eq!(offers[0].price, Decimal::from_str("100").unwrap());
 }
 
 #[test]
@@ -220,7 +222,7 @@ fn test_offer_missing_optional_fields() {
     let offers = parser.parse_offers_from_page(html);
     assert_eq!(offers.len(), 1);
     assert_eq!(offers[0].seller.name, "MinimalSeller");
-    assert_eq!(offers[0].price, 99.0);
+    assert_eq!(offers[0].price, Decimal::from_str("99").unwrap());
 }
 
 #[test]

@@ -1,6 +1,7 @@
 use reqwest::Client;
+use rust_decimal::Decimal;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use crate::error::FunPayError;
 use crate::models::{Game, Offer, Order, Chat, ChatMessage, Review};
 use crate::parser::Parser;
@@ -9,20 +10,31 @@ use crate::retry::{RetryPolicy, RateLimiter, RateLimiterState, is_retryable_stat
 /// Default FunPay base URL.
 pub const DEFAULT_BASE_URL: &str = "https://funpay.com";
 
+/// Default cache TTL for game list (1 hour).
+const GAME_CACHE_TTL: Duration = Duration::from_secs(3600);
+
 /// HTTP client for interacting with the FunPay API.
 ///
-/// Supports automatic retries, rate limiting, and cookie-based authentication.
+/// Supports automatic retries, rate limiting, cookie-based authentication,
+/// and an LRU cache for the game list.
 pub struct FunPayClient {
     pub client: Client,
     pub base_url: String,
     pub retry_policy: RetryPolicy,
     pub rate_limiter: Arc<RateLimiterState>,
+    game_cache: std::sync::Mutex<Option<(Vec<Game>, Instant)>>,
 }
 
 impl FunPayClient {
     /// Creates a new unauthenticated client with default settings.
     ///
-    /// # Example
+    /// # Errors
+    ///
+    /// Returns [`FunPayError::Reqwest`] if the underlying HTTP client
+    /// cannot be constructed (e.g. invalid TLS configuration).
+    ///
+    /// # Examples
+    ///
     /// ```no_run
     /// use funpay_rs::client::FunPayClient;
     ///
@@ -37,11 +49,37 @@ impl FunPayClient {
     }
 
     /// Creates a new unauthenticated client with a custom base URL.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FunPayError::Reqwest`] if the HTTP client cannot be built.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use funpay_rs::client::FunPayClient;
+    ///
+    /// let client = FunPayClient::with_base_url("https://funpay.com").unwrap();
+    /// ```
     pub fn with_base_url(base_url: &str) -> Result<Self, FunPayError> {
         Self::builder().base_url(base_url).build()
     }
 
     /// Creates an authenticated client using the given golden key.
+    ///
+    /// The golden key is stored as a cookie and sent with every request.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FunPayError::Reqwest`] if the HTTP client cannot be built.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use funpay_rs::client::FunPayClient;
+    ///
+    /// let client = FunPayClient::with_auth("your-golden-key").unwrap();
+    /// ```
     pub fn with_auth(golden_key: &str) -> Result<Self, FunPayError> {
         Self::builder().golden_key(golden_key).build()
     }
@@ -73,6 +111,16 @@ impl FunPayClient {
     }
 
     /// Performs an HTTP GET request with automatic retries and rate limiting.
+    ///
+    /// If `path` starts with `http`, it is used as-is; otherwise it is
+    /// prepended with [`base_url`](Self::base_url).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FunPayError::Reqwest`] on transport errors,
+    /// [`FunPayError::MaxRetriesExceeded`] if all retries fail,
+    /// [`FunPayError::RateLimited`] on HTTP 429, or
+    /// [`FunPayError::Timeout`] on request timeouts.
     pub async fn get(&self, path: &str) -> Result<String, FunPayError> {
         let url = if path.starts_with("http") {
             path.to_string()
@@ -124,19 +172,104 @@ impl FunPayClient {
     }
 
     /// Fetches the list of all available games on FunPay.
+    ///
+    /// Results are cached internally for 1 hour. Use
+    /// [`clear_game_cache`](Self::clear_game_cache) to force a refresh.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FunPayError::Reqwest`] on network failures,
+    /// [`FunPayError::MaxRetriesExceeded`] if retries are exhausted,
+    /// or [`FunPayError::RateLimited`] if the server responds with 429.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use funpay_rs::client::FunPayClient;
+    ///
+    /// # async fn example() -> Result<(), funpay_rs::error::FunPayError> {
+    /// let client = FunPayClient::new()?;
+    /// let games = client.fetch_all_games().await?;
+    /// for game in &games {
+    ///     println!("{} — {}", game.name, game.id);
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn fetch_all_games(&self) -> Result<Vec<Game>, FunPayError> {
+        {
+            let cache = self.game_cache.lock().unwrap();
+            if let Some((ref games, timestamp)) = *cache {
+                if timestamp.elapsed() < GAME_CACHE_TTL {
+                    return Ok(games.clone());
+                }
+            }
+        }
         let html = self.get("/").await?;
-        Ok(Parser::new().parse_game_list(&html))
+        let games = Parser::new().parse_game_list(&html);
+        {
+            let mut cache = self.game_cache.lock().unwrap();
+            *cache = Some((games.clone(), Instant::now()));
+        }
+        Ok(games)
+    }
+
+    /// Clears the cached game list, forcing the next call to
+    /// [`fetch_all_games`](Self::fetch_all_games) to fetch fresh data.
+    pub fn clear_game_cache(&self) {
+        let mut cache = self.game_cache.lock().unwrap();
+        *cache = None;
     }
 
     /// Fetches all offers from a specific category URL.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FunPayError::Reqwest`] on network failures,
+    /// [`FunPayError::MaxRetriesExceeded`] if retries are exhausted,
+    /// or [`FunPayError::RateLimited`] if the server responds with 429.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use funpay_rs::client::FunPayClient;
+    ///
+    /// # async fn example() -> Result<(), funpay_rs::error::FunPayError> {
+    /// let client = FunPayClient::new()?;
+    /// let offers = client.fetch_category_offers("https://funpay.com/lots/442").await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn fetch_category_offers(&self, url: &str) -> Result<Vec<Offer>, FunPayError> {
         let html = self.get(url).await?;
         Ok(Parser::new().parse_offers_from_page(&html))
     }
 
     /// Searches all categories for offers matching a keyword and price limit.
-    pub async fn search_all_categories(&self, keyword: &str, max_price: f64) -> Result<Vec<Offer>, FunPayError> {
+    ///
+    /// Iterates over every game whose name contains `keyword` (case-insensitive),
+    /// fetches both chips and lots categories, and filters by `max_price`.
+    /// Deduplicates results by offer ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FunPayError::Reqwest`] on network failures,
+    /// [`FunPayError::MaxRetriesExceeded`] if retries are exhausted,
+    /// or [`FunPayError::RateLimited`] if the server responds with 429.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use funpay_rs::client::FunPayClient;
+    /// use rust_decimal::Decimal;
+    ///
+    /// # async fn example() -> Result<(), funpay_rs::error::FunPayError> {
+    /// let client = FunPayClient::new()?;
+    /// let offers = client.search_all_categories("kimi", Decimal::from(3000)).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn search_all_categories(&self, keyword: &str, max_price: Decimal) -> Result<Vec<Offer>, FunPayError> {
         let games = self.fetch_all_games().await?;
         let mut seen = std::collections::HashSet::new();
         let mut results = Vec::new();
@@ -164,24 +297,62 @@ impl FunPayClient {
     }
 
     /// Fetches the current user's orders.
+    ///
+    /// Requires an authenticated client.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FunPayError::Reqwest`] on network failures or
+    /// [`FunPayError::MaxRetriesExceeded`] if retries are exhausted.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use funpay_rs::client::FunPayClient;
+    ///
+    /// # async fn example() -> Result<(), funpay_rs::error::FunPayError> {
+    /// let client = FunPayClient::with_auth("golden-key")?;
+    /// let orders = client.fetch_orders().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn fetch_orders(&self) -> Result<Vec<Order>, FunPayError> {
         let html = self.get("/orders").await?;
         Ok(Parser::new().parse_orders_from_page(&html))
     }
 
     /// Fetches the current user's chat list.
+    ///
+    /// Requires an authenticated client.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FunPayError::Reqwest`] on network failures or
+    /// [`FunPayError::MaxRetriesExceeded`] if retries are exhausted.
     pub async fn fetch_chats(&self) -> Result<Vec<Chat>, FunPayError> {
         let html = self.get("/chats").await?;
         Ok(Parser::new().parse_chats_from_page(&html))
     }
 
     /// Fetches messages for a specific chat.
+    ///
+    /// Requires an authenticated client.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FunPayError::Reqwest`] on network failures or
+    /// [`FunPayError::MaxRetriesExceeded`] if retries are exhausted.
     pub async fn fetch_chat_messages(&self, _chat_id: &str) -> Result<Vec<ChatMessage>, FunPayError> {
         let html = self.get("/chats").await?;
         Ok(Parser::new().parse_chat_messages(&html))
     }
 
     /// Fetches reviews for a specific user.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FunPayError::Reqwest`] on network failures or
+    /// [`FunPayError::MaxRetriesExceeded`] if retries are exhausted.
     pub async fn fetch_reviews(&self, _user_id: &str) -> Result<Vec<Review>, FunPayError> {
         let html = self.get("/users").await?;
         Ok(Parser::new().parse_reviews_from_page(&html))
@@ -236,24 +407,34 @@ impl FunPayClientBuilder {
     }
 
     /// Sets the retry policy for failed requests.
+    ///
+    /// Controls max retries and backoff delay.
     pub fn retry_policy(mut self, policy: RetryPolicy) -> Self {
         self.retry_policy = Some(policy);
         self
     }
 
     /// Sets the rate limiter configuration.
+    ///
+    /// Controls maximum requests per second.
     pub fn rate_limiter(mut self, limiter: RateLimiter) -> Self {
         self.rate_limiter = Some(limiter);
         self
     }
 
     /// Sets the request timeout in seconds.
+    ///
+    /// Defaults to 30 seconds.
     pub fn timeout(mut self, secs: u64) -> Self {
         self.timeout_secs = Some(secs);
         self
     }
 
     /// Builds the [`FunPayClient`] with the configured settings.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FunPayError::Reqwest`] if the HTTP client cannot be constructed.
     pub fn build(self) -> Result<FunPayClient, FunPayError> {
         let base_url = self.base_url.unwrap_or_else(|| DEFAULT_BASE_URL.to_string());
         let retry_policy = self.retry_policy.unwrap_or_default();
@@ -288,6 +469,7 @@ impl FunPayClientBuilder {
             base_url,
             retry_policy,
             rate_limiter: Arc::new(RateLimiterState::new(rate_limiter)),
+            game_cache: std::sync::Mutex::new(None),
         })
     }
 }

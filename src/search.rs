@@ -1,3 +1,5 @@
+use std::str::FromStr;
+use rust_decimal::Decimal;
 use crate::models::{Currency, Server, GameId, Offer};
 use crate::client::FunPayClient;
 use crate::error::FunPayError;
@@ -23,7 +25,7 @@ use crate::error::FunPayError;
 /// ```
 pub struct SearchQuery {
     keyword: String,
-    max_price: Option<f64>,
+    max_price: Option<Decimal>,
     currency: Option<Currency>,
     servers: Vec<Server>,
     game_id: Option<GameId>,
@@ -77,7 +79,7 @@ impl SearchQuery {
     /// # }
     /// ```
     pub fn max_price(mut self, price: f64) -> Self {
-        self.max_price = Some(price);
+        self.max_price = Some(Decimal::from_str(&price.to_string()).unwrap_or_default());
         self
     }
 
@@ -178,7 +180,7 @@ impl SearchQuery {
     /// # }
     /// ```
     pub async fn execute(&self, client: &FunPayClient) -> Result<Vec<Offer>, FunPayError> {
-        let max_price = self.max_price.unwrap_or(f64::MAX);
+        let max_price = self.max_price.unwrap_or(Decimal::MAX);
         let mut offers = client
             .search_all_categories(&self.keyword, max_price)
             .await?;

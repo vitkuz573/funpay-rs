@@ -1,3 +1,4 @@
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 /// Creates a newtype ID wrapper with common trait implementations.
@@ -131,7 +132,7 @@ pub struct Lot {
     pub offer_id: OfferId,
     pub server: Server,
     pub description: String,
-    pub price: f64,
+    pub price: Decimal,
     pub currency: Currency,
     pub stock: u32,
     pub seller: Seller,
@@ -175,7 +176,7 @@ pub struct Offer {
     pub lot_id: LotId,
     pub server: Server,
     pub description: String,
-    pub price: f64,
+    pub price: Decimal,
     pub currency: Currency,
     pub stock: u32,
     pub seller: Seller,
@@ -189,7 +190,7 @@ pub struct Order {
     pub offer_id: OfferId,
     pub seller: Seller,
     pub buyer: Seller,
-    pub price: f64,
+    pub price: Decimal,
     pub currency: Currency,
     pub status: OrderStatus,
     pub created_at: Option<chrono::NaiveDateTime>,

@@ -10,12 +10,23 @@ keywords = ["funpay", "gaming", "marketplace", "scraper"]
 categories = ["web-programming", "parser-implementations"]
 readme = "README.md"
 
+[features]
+default = ["streaming"]
+streaming = ["dep:async-stream", "dep:futures"]
+export = ["dep:csv"]
+full = ["streaming", "export"]
+
 [dev-dependencies]
 wiremock = "0.6"
 tokio = { version = "1", features = ["test-util"] }
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "parser_bench"
+harness = false
 
 [dependencies]
-reqwest = { version = "0.12", features = ["json", "cookies"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "cookies", "rustls-tls"] }
 scraper = "0.22"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -24,5 +35,8 @@ chrono = { version = "0.4", features = ["serde"] }
 url = { version = "2", features = ["serde"] }
 thiserror = "2"
 log = "0.4"
-async-stream = "0.3"
-futures = "0.3"
+rust_decimal = { version = "1", features = ["serde-with-str"] }
+lru = "0.12"
+async-stream = { version = "0.3", optional = true }
+futures = { version = "0.3", optional = true }
+csv = { version = "1", optional = true }

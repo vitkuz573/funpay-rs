@@ -1,5 +1,7 @@
 use funpay_rs::parser::Parser;
 use funpay_rs::models::OfferId;
+use rust_decimal::Decimal;
+use std::str::FromStr;
 
 #[test]
 fn test_parse_lot_offer_id() {
@@ -14,7 +16,7 @@ fn test_parse_price() {
     let html = r#"<div class="tc-price">150.50 ₽</div>"#;
     let parser = Parser::new();
     let price = parser.extract_price(html);
-    assert_eq!(price, Some(150.50));
+    assert_eq!(price, Some(Decimal::from_str("150.50").unwrap()));
 }
 
 #[test]

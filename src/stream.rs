@@ -1,12 +1,19 @@
+#[cfg(feature = "streaming")]
 use async_stream::stream;
+#[cfg(feature = "streaming")]
 use futures::Stream;
+#[cfg(feature = "streaming")]
+use rust_decimal::Decimal;
+#[cfg(feature = "streaming")]
 use crate::client::FunPayClient;
+#[cfg(feature = "streaming")]
 use crate::models::Offer;
 
+#[cfg(feature = "streaming")]
 pub fn search_stream<'a>(
     client: &'a FunPayClient,
     keyword: &'a str,
-    max_price: f64,
+    max_price: Decimal,
 ) -> impl Stream<Item = Offer> + 'a {
     stream! {
         let games = match client.fetch_all_games().await {

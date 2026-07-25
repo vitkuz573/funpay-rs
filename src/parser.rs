@@ -1,5 +1,7 @@
 use scraper::{Html, Selector};
 use std::collections::HashMap;
+use std::str::FromStr;
+use rust_decimal::Decimal;
 use crate::error::ParseError;
 use crate::models::{
     User, Offer, Game, GameCategory, Currency, OfferId, LotId, UserId, GameId, Server, Order,
@@ -38,7 +40,7 @@ impl Parser {
     }
 
     /// Extracts the price from a single offer HTML snippet.
-    pub fn extract_price(&self, html: &str) -> Option<f64> {
+    pub fn extract_price(&self, html: &str) -> Option<Decimal> {
         let document = Html::parse_document(html);
         let selector = Selector::parse(".tc-price").ok()?;
         let element = document.select(&selector).next()?;
@@ -47,7 +49,7 @@ impl Parser {
             .chars()
             .filter(|c| c.is_ascii_digit() || *c == '.')
             .collect();
-        cleaned.parse().ok()
+        Decimal::from_str(&cleaned).ok()
     }
 
     /// Extracts the seller name from an HTML snippet.
@@ -101,7 +103,7 @@ impl Parser {
             description: self
                 .extract_text(&document, ".tc-desc")
                 .unwrap_or_default(),
-            price: self.extract_price(html).unwrap_or(0.0),
+            price: self.extract_price(html).unwrap_or_default(),
             currency: Currency::RUB,
             stock: self.extract_stock(html).unwrap_or(0),
             seller: crate::models::Seller {
@@ -535,12 +537,12 @@ fn parse_order_status(class: &str) -> OrderStatus {
 }
 
 /// Parses a price from text containing digits and dots.
-fn parse_price_from_text(text: &str) -> f64 {
+fn parse_price_from_text(text: &str) -> Decimal {
     let cleaned: String = text
         .chars()
         .filter(|c| c.is_ascii_digit() || *c == '.')
         .collect();
-    cleaned.parse().unwrap_or(0.0)
+    Decimal::from_str(&cleaned).unwrap_or_default()
 }
 
 /// Detects currency from text containing currency symbols.

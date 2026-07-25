@@ -1,6 +1,8 @@
 use funpay_rs::client::FunPayClient;
 use funpay_rs::models::Currency;
 use funpay_rs::search::SearchQuery;
+use rust_decimal::Decimal;
+use std::str::FromStr;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -74,14 +76,14 @@ async fn test_fetch_category_offers_mock() {
     assert_eq!(offers.len(), 2);
 
     assert_eq!(offers[0].offer_id.0, "1001");
-    assert_eq!(offers[0].price, 250.0);
+    assert_eq!(offers[0].price, Decimal::from_str("250").unwrap());
     assert_eq!(offers[0].currency, Currency::RUB);
     assert_eq!(offers[0].stock, 5);
     assert_eq!(offers[0].seller.name, "SellerOne");
     assert!(offers[0].seller.online);
 
     assert_eq!(offers[1].offer_id.0, "1002");
-    assert_eq!(offers[1].price, 150.5);
+    assert_eq!(offers[1].price, Decimal::from_str("150.50").unwrap());
     assert_eq!(offers[1].currency, Currency::USD);
     assert_eq!(offers[1].stock, 1);
     assert_eq!(offers[1].seller.name, "SellerTwo");
@@ -160,10 +162,10 @@ async fn test_search_with_mock_server() {
         .build()
         .unwrap();
 
-    let offers = client.search_all_categories("Lost", 500.0).await.unwrap();
+    let offers = client.search_all_categories("Lost", Decimal::from(500)).await.unwrap();
     assert!(!offers.is_empty());
     for offer in &offers {
-        assert!(offer.price <= 500.0);
+        assert!(offer.price <= Decimal::from(500));
     }
 }
 
@@ -205,7 +207,7 @@ async fn test_search_query_with_mock() {
 
     assert!(!offers.is_empty());
     for offer in &offers {
-        assert!(offer.price <= 300.0);
+        assert!(offer.price <= Decimal::from(300));
         assert_eq!(offer.currency, Currency::RUB);
     }
 }
@@ -381,6 +383,6 @@ async fn test_search_no_games_found() {
         .build()
         .unwrap();
 
-    let offers = client.search_all_categories("Nonexistent", 100.0).await.unwrap();
+    let offers = client.search_all_categories("Nonexistent", Decimal::from(100)).await.unwrap();
     assert!(offers.is_empty());
 }

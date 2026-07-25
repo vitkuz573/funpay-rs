@@ -1,16 +1,17 @@
 use std::collections::HashMap;
+use rust_decimal::Decimal;
 use tokio::sync::broadcast;
 use crate::models::OfferId;
 
 #[derive(Debug, Clone)]
 pub enum MonitorEvent {
-    PriceChanged { offer_id: OfferId, old_price: f64, new_price: f64 },
+    PriceChanged { offer_id: OfferId, old_price: Decimal, new_price: Decimal },
     NewOffer { offer_id: OfferId },
     OfferRemoved { offer_id: OfferId },
 }
 
 pub struct Monitor {
-    seen_offers: HashMap<OfferId, f64>,
+    seen_offers: HashMap<OfferId, Decimal>,
 }
 
 impl Monitor {
@@ -18,13 +19,13 @@ impl Monitor {
         Self { seen_offers: HashMap::new() }
     }
 
-    pub fn check_for_changes(&mut self, offers: Vec<(OfferId, f64)>) -> Vec<MonitorEvent> {
+    pub fn check_for_changes(&mut self, offers: Vec<(OfferId, Decimal)>) -> Vec<MonitorEvent> {
         let mut events = Vec::new();
-        let current: HashMap<OfferId, f64> = offers.into_iter().collect();
+        let current: HashMap<OfferId, Decimal> = offers.into_iter().collect();
 
         for (id, price) in &current {
             if let Some(old_price) = self.seen_offers.get(id) {
-                if (old_price - price).abs() > 0.01 {
+                if (*old_price - price).abs() > Decimal::from(1).checked_div(Decimal::from(100)).unwrap_or_default() {
                     events.push(MonitorEvent::PriceChanged {
                         offer_id: id.clone(),
                         old_price: *old_price,
@@ -48,7 +49,7 @@ impl Monitor {
 
     pub fn spawn_monitoring(
         &self,
-        mut rx: broadcast::Receiver<Vec<(OfferId, f64)>>,
+        mut rx: broadcast::Receiver<Vec<(OfferId, Decimal)>>,
         event_tx: broadcast::Sender<MonitorEvent>,
     ) {
         let mut monitor = Monitor::new();
