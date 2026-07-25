@@ -112,6 +112,18 @@ impl Parser {
                     .chars().filter(|c| c.is_ascii_digit() || *c == '.')
                     .collect::<String>().parse().ok()?;
 
+                let currency = el.select(&Selector::parse(".tc-price .unit").ok()?)
+                    .next()
+                    .and_then(|e| e.text().next())
+                    .map(|t| t.trim())
+                    .map(|sym| match sym {
+                        "$" => "USD",
+                        "€" => "EUR",
+                        _ => "RUB",
+                    })
+                    .unwrap_or("RUB")
+                    .to_string();
+
                 let stock: u32 = el.select(&Selector::parse(".tc-amount").ok()?)
                     .next()
                     .and_then(|e| e.value().attr("data-s"))
@@ -154,7 +166,7 @@ impl Parser {
                     server: server_name,
                     description,
                     price,
-                    currency: "RUB".to_string(),
+                    currency,
                     stock,
                     seller: crate::models::Seller {
                         name: seller_name,
