@@ -2,8 +2,8 @@
 set -e
 cd "$(dirname "$0")"
 
-# Generate from spec using specgen
-cargo run --manifest-path ../specgen/Cargo.toml -- generate \
+# Generate from spec using webspec
+cargo run --manifest-path ../webspec/Cargo.toml -- generate \
     --spec ../funpay-spec/spec/funpay.yaml \
     --target rust \
     --output .

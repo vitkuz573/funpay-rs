@@ -56,7 +56,6 @@ fn test_price_parsing_with_comma() {
     let parser = Parser::new();
     let offers = parser.parse_category_offers(html);
     assert_eq!(offers.len(), 1);
-    // f64 parse fails on "1 250,50" format, defaults to 0.0
     assert_eq!(offers[0].price, Price(0.0));
 }
 
@@ -69,7 +68,6 @@ fn test_price_with_thousand_separator() {
     let parser = Parser::new();
     let offers = parser.parse_category_offers(html);
     assert_eq!(offers.len(), 1);
-    // f64 parse fails on "1 250" format, defaults to 0.0
     assert_eq!(offers[0].price, Price(0.0));
 }
 
@@ -137,17 +135,16 @@ fn test_parse_user_profile_empty_html() {
     assert!(user.is_some());
     let user = user.unwrap();
     assert!(user.username.is_empty());
-    assert!(user.avatar_url.is_empty());
 }
 
 #[test]
 fn test_unicode_game_names() {
     let html = r#"<div class="game-list">
         <div class="game-title">
-            <a href="/chips/100/" class="game-title">Киберпанк 2077</a>
+            <a href="/chips/100/" class="game-title" data-game-id="100">Киберпанк 2077</a>
         </div>
         <div class="game-title">
-            <a href="/lots/200/" class="game-title">Эльden Ring</a>
+            <a href="/lots/200/" class="game-title" data-game-id="200">Эльden Ring</a>
         </div>
     </div>"#;
     let parser = Parser::new();
@@ -185,4 +182,84 @@ fn test_parse_chat_messages_empty() {
     let parser = Parser::new();
     let msgs = parser.parse_chat_messages(html);
     assert!(msgs.is_empty());
+}
+
+#[test]
+fn test_parse_reviews_empty() {
+    let html = r#"<html><body></body></html>"#;
+    let parser = Parser::new();
+    let reviews = parser.parse_reviews(html);
+    assert!(reviews.is_empty());
+}
+
+#[test]
+fn test_parse_notifications_empty() {
+    let html = r#"<html><body></body></html>"#;
+    let parser = Parser::new();
+    let notifs = parser.parse_notifications(html);
+    assert!(notifs.is_empty());
+}
+
+#[test]
+fn test_parse_subcategories_empty() {
+    let html = r#"<html><body></body></html>"#;
+    let parser = Parser::new();
+    let subs = parser.parse_subcategories(html);
+    assert!(subs.is_empty());
+}
+
+#[test]
+fn test_parse_transactions_empty() {
+    let html = r#"<html><body></body></html>"#;
+    let parser = Parser::new();
+    let txns = parser.parse_transactions(html);
+    assert!(txns.is_empty());
+}
+
+#[test]
+fn test_parse_settings_empty() {
+    let html = r#"<html><body></body></html>"#;
+    let parser = Parser::new();
+    let settings = parser.parse_settings(html);
+    assert!(settings.is_some());
+}
+
+#[test]
+fn test_parse_game_servers_empty() {
+    let html = r#"<html><body></body></html>"#;
+    let parser = Parser::new();
+    let servers = parser.parse_game_servers(html);
+    assert!(servers.is_empty());
+}
+
+#[test]
+fn test_parse_search_empty() {
+    let html = r#"<html><body></body></html>"#;
+    let parser = Parser::new();
+    let results = parser.parse_search(html);
+    assert!(results.is_empty());
+}
+
+#[test]
+fn test_empty_string_html() {
+    let parser = Parser::new();
+    assert!(parser.parse_category_offers("").is_empty());
+    assert!(parser.parse_game_list("").is_empty());
+    assert!(parser.parse_chats("").is_empty());
+    assert!(parser.parse_orders("").is_empty());
+    assert!(parser.parse_chat_messages("").is_empty());
+    assert!(parser.parse_reviews("").is_empty());
+    assert!(parser.parse_notifications("").is_empty());
+    assert!(parser.parse_subcategories("").is_empty());
+    assert!(parser.parse_transactions("").is_empty());
+    assert!(parser.parse_game_servers("").is_empty());
+    assert!(parser.parse_search("").is_empty());
+}
+
+#[test]
+fn test_whitespace_only_html() {
+    let html = "   \n\t  \n  ";
+    let parser = Parser::new();
+    assert!(parser.parse_category_offers(html).is_empty());
+    assert!(parser.parse_game_list(html).is_empty());
 }

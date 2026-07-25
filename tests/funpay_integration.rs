@@ -27,8 +27,7 @@ async fn test_fetch_offers_real() {
     let games = client.fetch_game_list().await.unwrap();
     let game = games.first().expect("Should have at least one game");
 
-    // Use the game's id to fetch category offers (first category = 1)
-    let game_id: u64 = game.id.parse().unwrap_or(0);
+    let game_id = game.id.inner();
     let offers = client.fetch_category_offers(game_id, 1).await.unwrap();
     assert!(!offers.is_empty(), "Should find offers on {}", game.title);
     println!("{}: {} offers", game.title, offers.len());
@@ -44,7 +43,7 @@ async fn test_fetch_user_profile_real() {
     let client = FunPayClient::new().unwrap();
     let games = client.fetch_game_list().await.unwrap();
     let game = games.first().expect("Should have games");
-    let game_id: u64 = game.id.parse().unwrap_or(0);
+    let game_id = game.id.inner();
     let offers = client.fetch_category_offers(game_id, 1).await.unwrap();
     let offer = offers.first().expect("Should have offers");
 

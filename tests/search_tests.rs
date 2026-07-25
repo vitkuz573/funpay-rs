@@ -42,4 +42,14 @@ fn test_parse_offers_empty_page() {
     assert_eq!(offers.len(), 0);
 }
 
-
+#[test]
+fn test_parse_offers_special_characters_in_description() {
+    let html = r#"<a class="tc-item">
+        <div class="tc-price">50</div>
+        <div class="tc-desc-text">Item with "quotes" &amp; entities</div>
+    </a>"#;
+    let parser = Parser::new();
+    let offers = parser.parse_category_offers(html);
+    assert_eq!(offers.len(), 1);
+    assert!(offers[0].description.as_deref().unwrap().contains("quotes"));
+}
