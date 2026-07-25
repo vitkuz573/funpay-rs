@@ -136,8 +136,8 @@ pub struct Seller {
 pub struct Game {
     pub id: GameId,
     pub name: String,
-    pub chips_url: Option<String>,
-    pub lots_url: Option<String>,
+    pub chips_url: Option<url::Url>,
+    pub lots_url: Option<url::Url>,
     pub category: Option<GameCategory>,
 }
 
@@ -148,7 +148,7 @@ pub struct User {
     pub rating: f64,
     pub reviews: u32,
     pub online: bool,
-    pub registered: Option<String>,
+    pub registered: Option<chrono::NaiveDate>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

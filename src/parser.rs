@@ -51,7 +51,8 @@ impl Parser {
             online: self.extract_text(&document, ".online-status")
                 .map(|s| s == "online")
                 .unwrap_or(false),
-            registered: self.extract_text(&document, ".reg-date"),
+            registered: self.extract_text(&document, ".reg-date")
+                .and_then(|s| chrono::NaiveDate::parse_from_str(&s, "%d.%m.%Y").ok()),
         })
     }
 
@@ -87,11 +88,18 @@ impl Parser {
             .filter_map(|el| {
                 let href = el.value().attr("href")?;
                 let name = el.text().next()?.to_string();
+                let base = "https://funpay.com";
+                let full_url = if href.starts_with("http") {
+                    href.to_string()
+                } else {
+                    format!("{}{}", base, href)
+                };
+                let parsed_url = url::Url::parse(&full_url).ok();
                 Some(Game {
                     id: GameId(href.split('/').nth(2)?.to_string()),
                     name,
-                    chips_url: if href.contains("/chips/") { Some(href.to_string()) } else { None },
-                    lots_url: if href.contains("/lots/") { Some(href.to_string()) } else { None },
+                    chips_url: if href.contains("/chips/") { parsed_url.clone() } else { None },
+                    lots_url: if href.contains("/lots/") { parsed_url } else { None },
                     category: GameCategory::from_url(href),
                 })
             })

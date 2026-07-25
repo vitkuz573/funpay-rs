@@ -73,13 +73,13 @@ impl FunPayClient {
         
         // First: search in games with keyword in name (most likely match)
         for game in games.iter().filter(|g| g.name.to_lowercase().contains(&keyword_lower)) {
-            let urls: Vec<&String> = [
+            let urls: Vec<&url::Url> = [
                 game.chips_url.as_ref(),
                 game.lots_url.as_ref(),
             ].into_iter().flatten().collect();
             
             for url in urls {
-                if let Ok(offers) = self.fetch_category_offers(url).await {
+                if let Ok(offers) = self.fetch_category_offers(url.as_str()).await {
                     for offer in offers {
                         if offer.price <= max_price && seen.insert(offer.offer_id.clone()) {
                             results.push(offer);
