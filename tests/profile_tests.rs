@@ -1,39 +1,29 @@
-use funpay_rs::parser::Parser;
-use funpay_rs::models::UserId;
+use funpay_sdk::parser::Parser;
 
 #[test]
 fn test_parse_user_profile() {
-    let html = r#"
-    <div class="profile">
-        <div class="profile-name">Gamer123</div>
-        <div class="rating">4.8</div>
-        <div class="reviews">156</div>
-        <div class="online-status">online</div>
-        <div class="reg-date">15.01.2020</div>
-    </div>
-    "#;
+    let html = r#"<div class="profile-avatar"><img src="avatar.png"></div>
+        <div class="profile-title">Gamer123</div>
+        <div class="user-status">online</div>
+        <div class="profile-user-id" data-user-id="999"></div>
+        <div class="profile-regdate">15.01.2020</div>"#;
     let parser = Parser::new();
-    let user = parser.parse_user(html, UserId("999".to_string()));
-    assert!(user.is_ok());
+    let user = parser.parse_user_profile(html);
+    assert!(user.is_some());
     let user = user.unwrap();
     assert_eq!(user.username, "Gamer123");
-    assert_eq!(user.rating, 4.8);
-    assert_eq!(user.reviews, 156);
-    assert!(user.online);
+    assert_eq!(user.status.as_deref(), Some("online"));
+    assert_eq!(user.registration_date.as_deref(), Some("15.01.2020"));
 }
 
 #[test]
-fn test_parse_user_offline() {
-    let html = r#"
-    <div class="profile">
-        <div class="profile-name">OfflineUser</div>
-        <div class="rating">3.5</div>
-        <div class="reviews">10</div>
-        <div class="online-status">offline</div>
-    </div>
-    "#;
+fn test_parse_user_profile_minimal() {
+    let html = r#"<div class="profile-title">MinimalUser</div>"#;
     let parser = Parser::new();
-    let user = parser.parse_user(html, UserId("888".to_string()));
-    assert!(user.is_ok());
-    assert!(!user.unwrap().online);
+    let user = parser.parse_user_profile(html);
+    assert!(user.is_some());
+    let user = user.unwrap();
+    assert_eq!(user.username, "MinimalUser");
+    assert!(user.status.is_none());
+    assert!(user.registration_date.is_none());
 }

@@ -1,7 +1,6 @@
-use funpay_rs::client::FunPayClient;
-use funpay_rs::error::{FunPayError, ParseError};
-use funpay_rs::parser::Parser;
-use funpay_rs::monitor::Monitor;
+use funpay_sdk::client::FunPayClient;
+use funpay_sdk::error::{FunPayError, ParseError};
+use funpay_sdk::parser::Parser;
 
 #[test]
 fn test_error_display() {
@@ -20,6 +19,22 @@ fn test_client_creation() {
 }
 
 #[test]
-fn test_monitor_creation() {
-    let _monitor = Monitor::new();
+fn test_parse_error_variants() {
+    let e1 = ParseError::NoDataAppData;
+    assert!(e1.to_string().contains("data-app-data"));
+
+    let e2 = ParseError::UnclosedDataAppData;
+    assert!(e2.to_string().contains("unclosed"));
+
+    let e3 = ParseError::JsonParse("bad json".into());
+    assert!(e3.to_string().contains("bad json"));
+
+    let e4 = ParseError::MissingField("field".into());
+    assert!(e4.to_string().contains("field"));
+}
+
+#[test]
+fn test_funpay_error_from_parse() {
+    let err: FunPayError = ParseError::MissingField("x".into()).into();
+    assert!(matches!(err, FunPayError::Parse(_)));
 }
