@@ -52,6 +52,9 @@ pub enum FunPayError {
     /// All retry attempts have been exhausted.
     #[error("max retries ({0}) exceeded")]
     MaxRetriesExceeded(u32),
+    /// A WebSocket error occurred.
+    #[error("websocket error: {0}")]
+    WebSocket(String),
 }
 
 /// A convenience type alias for `Result<T, FunPayError>`.

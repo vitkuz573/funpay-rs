@@ -14,7 +14,8 @@ readme = "README.md"
 default = ["streaming"]
 streaming = ["dep:async-stream", "dep:futures"]
 export = ["dep:csv"]
-full = ["streaming", "export"]
+ws = ["dep:tokio-tungstenite", "dep:futures-util"]
+full = ["streaming", "export", "ws"]
 
 [dev-dependencies]
 wiremock = "0.6"
@@ -37,6 +38,9 @@ thiserror = "2"
 log = "0.4"
 rust_decimal = { version = "1", features = ["serde-with-str"] }
 lru = "0.12"
+rand = "0.8"
 async-stream = { version = "0.3", optional = true }
 futures = { version = "0.3", optional = true }
 csv = { version = "1", optional = true }
+tokio-tungstenite = { version = "0.24", features = ["native-tls"], optional = true }
+futures-util = { version = "0.3", optional = true }

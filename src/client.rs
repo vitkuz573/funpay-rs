@@ -3,6 +3,7 @@ use rust_decimal::Decimal;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use crate::error::FunPayError;
+use crate::middleware::RequestMiddleware;
 use crate::models::{Game, Offer, Order, Chat, ChatMessage, Review};
 use crate::parser::Parser;
 use crate::retry::{RetryPolicy, RateLimiter, RateLimiterState, is_retryable_status};
@@ -22,6 +23,7 @@ pub struct FunPayClient {
     pub base_url: String,
     pub retry_policy: RetryPolicy,
     pub rate_limiter: Arc<RateLimiterState>,
+    pub middleware: Vec<Box<dyn RequestMiddleware>>,
     game_cache: std::sync::Mutex<Option<(Vec<Game>, Instant)>>,
 }
 
@@ -138,7 +140,11 @@ impl FunPayClient {
 
             self.rate_limiter.wait().await;
 
-            match self.client.get(&url).send().await {
+            let mut req = self.client.get(&url).build()?;
+            for mw in &self.middleware {
+                mw.on_request(&mut req);
+            }
+            match self.client.execute(req).await {
                 Ok(resp) => {
                     let status = resp.status().as_u16();
                     if is_retryable_status(status) {
@@ -367,6 +373,7 @@ pub struct FunPayClientBuilder {
     retry_policy: Option<RetryPolicy>,
     rate_limiter: Option<RateLimiter>,
     timeout_secs: Option<u64>,
+    middleware: Vec<Box<dyn RequestMiddleware>>,
 }
 
 impl FunPayClientBuilder {
@@ -430,6 +437,14 @@ impl FunPayClientBuilder {
         self
     }
 
+    /// Adds a request middleware to the client.
+    ///
+    /// Middleware is executed in insertion order before each request is sent.
+    pub fn middleware(mut self, mw: Box<dyn RequestMiddleware>) -> Self {
+        self.middleware.push(mw);
+        self
+    }
+
     /// Builds the [`FunPayClient`] with the configured settings.
     ///
     /// # Errors
@@ -469,6 +484,7 @@ impl FunPayClientBuilder {
             base_url,
             retry_policy,
             rate_limiter: Arc::new(RateLimiterState::new(rate_limiter)),
+            middleware: self.middleware,
             game_cache: std::sync::Mutex::new(None),
         })
     }

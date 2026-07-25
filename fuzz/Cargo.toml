@@ -1,0 +1,23 @@
+[package]
+name = "funpay-rs-fuzz"
+version = "0.0.0"
+authors = ["Vitaly Kuzyaev <vitkuz573@gmail.com>"]
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.funpay-rs]
+path = ".."
+features = ["full"]
+
+[[bin]]
+name = "fuzz_parser"
+path = "fuzz_targets/fuzz_parser.rs"
+test = false
+doc = false
+bench = false

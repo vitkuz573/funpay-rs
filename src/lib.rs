@@ -31,14 +31,19 @@
 pub mod client;
 pub mod auth;
 pub mod error;
+pub mod middleware;
 pub mod models;
 pub mod parser;
 pub mod monitor;
 pub mod search;
 pub mod retry;
+pub mod ua;
 
 #[cfg(feature = "streaming")]
 pub mod stream;
 
 #[cfg(feature = "export")]
 pub mod export;
+
+#[cfg(feature = "ws")]
+pub mod ws;
