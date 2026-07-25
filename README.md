@@ -17,7 +17,14 @@ use funpay_rs::client::FunPayClient;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Default base URL (https://funpay.com)
     let client = FunPayClient::new()?;
+    
+    // Or custom base URL
+    let client = FunPayClient::with_base_url("https://custom.funpay.com")?;
+    
+    // With authentication
+    let client = FunPayClient::with_auth("your_golden_key")?;
     
     // Fetch all games
     let games = client.fetch_all_games().await?;
