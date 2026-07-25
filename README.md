@@ -120,6 +120,52 @@ match client.fetch_all_games().await {
 | `monitor` | `Monitor`, `MonitorEvent` |
 | `auth` | CSRF token extraction |
 
+## Code Generation
+
+This SDK is generated from [funpay-spec](../funpay-spec/spec/funpay.yaml) using [funpay-codegen](../funpay-codegen/).
+
+### Regenerate from spec
+
+```sh
+# Using Makefile (recommended)
+make generate    # Generate only
+make build       # Generate + build
+make test        # Generate + test
+
+# Using build script
+bash build.sh
+
+# Using codegen directly
+cd funpay-codegen
+cargo run -- --spec ../funpay-spec/spec/funpay.yaml --output ../funpay-rs/generated
+```
+
+### Project structure
+
+```
+funpay-spec/       → OpenAPI-like spec (funpay.yaml)
+funpay-codegen/    → Rust code generator
+funpay-rs/         → Generated + hand-written SDK
+  src/             → Hand-written modules (auth, middleware, retry, etc.)
+  generated/       → Auto-generated code (models, parser, client, error)
+  build.sh         → Generate + merge script
+```
+
+### Hand-written modules
+
+These modules are maintained manually in `src/` and copied into `generated/` by `build.sh`:
+
+- `auth.rs` — CSRF token extraction
+- `cookies.rs` — Cookie persistence
+- `middleware.rs` — Request middleware trait
+- `retry.rs` — Exponential backoff & rate limiter
+- `search.rs` — SearchQuery builder
+- `stream.rs` — Async streaming (feature-gated)
+- `export.rs` — JSON/CSV export (feature-gated)
+- `ws.rs` — WebSocket support (feature-gated)
+- `ua.rs` — User-Agent rotation
+- `monitor.rs` — Real-time price monitoring
+
 ## Testing
 
 Run the full test suite (71 tests):
