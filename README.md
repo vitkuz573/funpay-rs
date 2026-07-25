@@ -133,6 +133,7 @@ Tests include mock HTTP layer tests, parser edge cases, search filtering, auth, 
 ## Consumers
 
 - [funpay-deal-finder](https://github.com/vitkuz573/funpay-deal-finder) — CLI tool for finding the best deals on FunPay with configurable filters
+- [funpay-cli](https://github.com/vitkuz573/funpay-cli) — CLI tool for interacting with FunPay.com (search, games, sellers, export)
 
 ## License
 
