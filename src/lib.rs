@@ -30,6 +30,7 @@
 
 pub mod client;
 pub mod auth;
+pub mod cookies;
 pub mod error;
 pub mod middleware;
 pub mod models;

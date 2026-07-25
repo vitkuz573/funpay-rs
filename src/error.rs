@@ -55,6 +55,9 @@ pub enum FunPayError {
     /// A WebSocket error occurred.
     #[error("websocket error: {0}")]
     WebSocket(String),
+    /// An I/O error occurred.
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 /// A convenience type alias for `Result<T, FunPayError>`.

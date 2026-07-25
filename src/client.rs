@@ -2,6 +2,7 @@ use reqwest::Client;
 use rust_decimal::Decimal;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use crate::cookies::CookieStore;
 use crate::error::FunPayError;
 use crate::middleware::RequestMiddleware;
 use crate::models::{Game, Offer, Order, Chat, ChatMessage, Review};
@@ -251,6 +252,79 @@ impl FunPayClient {
         Ok(Parser::new().parse_offers_from_page(&html))
     }
 
+    /// Fetches all offers from a category, automatically following pagination.
+    ///
+    /// Follows "next page" links until no more pages are found or no new
+    /// offers are returned. Includes a 500ms delay between pages to avoid
+    /// rate limiting.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FunPayError::Reqwest`] on network failures,
+    /// [`FunPayError::MaxRetriesExceeded`] if retries are exhausted,
+    /// or [`FunPayError::RateLimited`] if the server responds with 429.
+    pub async fn fetch_all_category_offers(&self, url: &str) -> Result<Vec<Offer>, FunPayError> {
+        let mut all_offers = Vec::new();
+        let mut current_url = url.to_string();
+
+        loop {
+            let html = self.get(&current_url).await?;
+            let offers = Parser::new().parse_offers_from_page(&html);
+            let count = offers.len();
+            all_offers.extend(offers);
+
+            match Parser::extract_next_page_url(&html) {
+                Some(next_url) => {
+                    current_url = next_url;
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                }
+                None => break,
+            }
+
+            if count == 0 {
+                break;
+            }
+        }
+
+        Ok(all_offers)
+    }
+
+    /// Searches all categories with pagination, following every page of results.
+    ///
+    /// Like [`search_all_categories`](Self::search_all_categories) but follows
+    /// pagination links to fetch complete results across all pages.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FunPayError::Reqwest`] on network failures,
+    /// [`FunPayError::MaxRetriesExceeded`] if retries are exhausted,
+    /// or [`FunPayError::RateLimited`] if the server responds with 429.
+    pub async fn search_all_categories_paginated(&self, keyword: &str, max_price: rust_decimal::Decimal) -> Result<Vec<Offer>, FunPayError> {
+        let games = self.fetch_all_games().await?;
+        let mut seen = std::collections::HashSet::new();
+        let mut results = Vec::new();
+        let keyword_lower = keyword.to_lowercase();
+
+        for game in games.iter().filter(|g| g.name.to_lowercase().contains(&keyword_lower)) {
+            let urls: Vec<&url::Url> = [
+                game.chips_url.as_ref(),
+                game.lots_url.as_ref(),
+            ].into_iter().flatten().collect();
+
+            for url in urls {
+                if let Ok(offers) = self.fetch_all_category_offers(url.as_str()).await {
+                    for offer in offers {
+                        if offer.price <= max_price && seen.insert(offer.offer_id.clone()) {
+                            results.push(offer);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(results)
+    }
+
     /// Searches all categories for offers matching a keyword and price limit.
     ///
     /// Iterates over every game whose name contains `keyword` (case-insensitive),
@@ -374,6 +448,8 @@ pub struct FunPayClientBuilder {
     rate_limiter: Option<RateLimiter>,
     timeout_secs: Option<u64>,
     middleware: Vec<Box<dyn RequestMiddleware>>,
+    proxy: Option<reqwest::Proxy>,
+    cookie_file: Option<String>,
 }
 
 impl FunPayClientBuilder {
@@ -445,6 +521,46 @@ impl FunPayClientBuilder {
         self
     }
 
+    /// Sets a proxy for all requests.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use funpay_rs::client::FunPayClient;
+    /// use reqwest::Proxy;
+    ///
+    /// # async fn example() -> Result<(), funpay_rs::error::FunPayError> {
+    /// let client = FunPayClient::builder()
+    ///     .proxy(Proxy::http("http://proxy:8080").unwrap())
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn proxy(mut self, proxy: reqwest::Proxy) -> Self {
+        self.proxy = Some(proxy);
+        self
+    }
+
+    /// Sets a file path for cookie persistence.
+    ///
+    /// When set, the golden key is loaded from this file on build (if it exists)
+    /// and saved to this file whenever a golden key is configured.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use funpay_rs::client::FunPayClient;
+    ///
+    /// # async fn example() -> Result<(), funpay_rs::error::FunPayError> {
+    /// let client = FunPayClient::builder()
+    ///     .cookie_file(".funpay_cookies")
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn cookie_file(mut self, path: &str) -> Self {
+        self.cookie_file = Some(path.to_string());
+        self
+    }
+
     /// Builds the [`FunPayClient`] with the configured settings.
     ///
     /// # Errors
@@ -469,15 +585,35 @@ impl FunPayClientBuilder {
             .cookie_store(true)
             .timeout(Duration::from_secs(timeout_secs));
 
-        if let Some(golden_key) = self.golden_key {
+        if let Some(proxy) = self.proxy {
+            builder = builder.proxy(proxy);
+        }
+
+        let mut golden_key = self.golden_key;
+
+        if let Some(ref cookie_path) = self.cookie_file {
+            let mut store = CookieStore::new(cookie_path);
+            if store.load() {
+                if golden_key.is_none() {
+                    golden_key = store.golden_key().map(|s| s.to_string());
+                }
+            }
+        }
+
+        if let Some(ref key) = golden_key {
             let jar = Arc::new(reqwest::cookie::Jar::default());
             let cookie_url = url::Url::parse("https://funpay.com").expect("valid URL");
-            let cookie_str = format!("golden_key={}; Domain=funpay.com; Path=/", golden_key);
+            let cookie_str = format!("golden_key={}; Domain=funpay.com; Path=/", key);
             jar.add_cookie_str(&cookie_str, &cookie_url);
             builder = builder.cookie_provider(jar);
         }
 
         let client = builder.build()?;
+
+        if let (Some(cookie_path), Some(ref key)) = (&self.cookie_file, &golden_key) {
+            let store = CookieStore::new(cookie_path);
+            store.save(key)?;
+        }
 
         Ok(FunPayClient {
             client,

@@ -446,7 +446,7 @@ impl Parser {
     /// Extracts the next page URL from a listing page.
     ///
     /// Checks for both `input[name="continue"]` (used on orders/reviews pages)
-    /// and standard pagination links.
+    /// and standard pagination links (used on lot/chips category pages).
     pub fn extract_next_page_url(html: &str) -> Option<String> {
         let document = Html::parse_document(html);
 
@@ -457,6 +457,51 @@ impl Parser {
             if let Some(value) = input.value().attr("value") {
                 if !value.is_empty() {
                     return Some(value.to_string());
+                }
+            }
+        }
+
+        // Check for pagination links (lot/chips category pages)
+        // FunPay uses <a> elements with class "btn" inside a pagination wrapper,
+        // or links containing ?page=N. Look for the "next" link.
+        let next_link_selectors = &[
+            "a.paging-next",
+            "a.next",
+            r#"a[rel="next"]"#,
+            "li.next a",
+        ];
+        for sel_str in next_link_selectors {
+            if let Ok(sel) = Selector::parse(sel_str) {
+                if let Some(el) = document.select(&sel).next() {
+                    if let Some(href) = el.value().attr("href") {
+                        if !href.is_empty() {
+                            let url = if href.starts_with("http") {
+                                href.to_string()
+                            } else {
+                                format!("https://funpay.com{}", href)
+                            };
+                            return Some(url);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fallback: find any link with ?page= parameter that comes after current page indicators
+        let page_link_sel = Selector::parse(r#"a[href*="page="]"#).ok()?;
+        let paging_sel = Selector::parse(".paging, .pagination, .page-nav").ok();
+        if let Some(paging_el) = paging_sel.and_then(|sel| document.select(&sel).next()) {
+            for el in paging_el.select(&page_link_sel) {
+                if let Some(href) = el.value().attr("href") {
+                    let url = if href.starts_with("http") {
+                        href.to_string()
+                    } else {
+                        format!("https://funpay.com{}", href)
+                    };
+                    // Check if this link looks like a "next" or higher page number
+                    if href.contains("page=") {
+                        return Some(url);
+                    }
                 }
             }
         }
