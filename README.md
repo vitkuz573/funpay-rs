@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Found {} games", games.len());
     
     // Fetch offers from a category
-    let offers = client.fetch_category_offers("https://funpay.com/chips/6/").await?;
+    let offers = client.fetch_category_offers("/chips/6/").await?;
     println!("Found {} offers", offers.len());
     
     // Search across all categories
