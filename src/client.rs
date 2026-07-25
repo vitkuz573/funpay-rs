@@ -3,6 +3,8 @@ use crate::error::FunPayError;
 use crate::models::{Game, Offer};
 use crate::parser::Parser;
 
+pub const DEFAULT_BASE_URL: &str = "https://funpay.com";
+
 pub struct FunPayClient {
     pub client: Client,
     pub base_url: String,
@@ -10,6 +12,10 @@ pub struct FunPayClient {
 
 impl FunPayClient {
     pub fn new() -> Result<Self, FunPayError> {
+        Self::with_base_url(DEFAULT_BASE_URL)
+    }
+
+    pub fn with_base_url(base_url: &str) -> Result<Self, FunPayError> {
         let mut headers = reqwest::header::HeaderMap::new();
         headers.insert("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36".parse().unwrap());
         
@@ -18,11 +24,15 @@ impl FunPayClient {
             .cookie_store(true)
             .build()?;
         
-        Ok(Self { client, base_url: "https://funpay.com".to_string() })
+        Ok(Self { client, base_url: base_url.to_string() })
     }
 
     pub fn with_auth(golden_key: &str) -> Result<Self, FunPayError> {
-        let mut this = Self::new()?;
+        Self::with_auth_and_base_url(golden_key, DEFAULT_BASE_URL)
+    }
+
+    pub fn with_auth_and_base_url(golden_key: &str, base_url: &str) -> Result<Self, FunPayError> {
+        let mut this = Self::with_base_url(base_url)?;
         this.client = Client::builder()
             .default_headers({
                 let mut h = reqwest::header::HeaderMap::new();
