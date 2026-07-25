@@ -18,19 +18,21 @@
 //! }
 //! ```
 //!
-//! ## Features
+//! ## Architecture
 //!
-//! - **HTML Parsing**: Robust parsing of FunPay pages into typed models
-//! - **Async Client**: Full async HTTP client with cookie persistence
-//! - **WebSocket Monitoring**: Real-time offer price monitoring
-//! - **Search & Filter**: Built-in search queries with price/seller filtering
-//! - **Export**: JSON and CSV export of offer data
-//! - **Rate Limiting**: Built-in request throttling and retry logic
+//! - `generated/` — Auto-generated from webspec (DO NOT EDIT)
+//! - Root modules — Hand-written extensions
 
-pub mod models;
-pub mod parser;
-pub mod client;
-pub mod error;
+// Generated modules (from webspec)
+pub mod generated;
+
+// Re-export generated types at crate root for convenience
+pub use generated::models;
+pub use generated::parser;
+pub use generated::error;
+pub use generated::client;
+
+// Hand-written modules
 pub mod cookies;
 pub mod middleware;
 pub mod retry;

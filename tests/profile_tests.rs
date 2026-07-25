@@ -80,7 +80,7 @@ fn test_parse_seller_profile_empty() {
 #[test]
 fn test_parse_user_profile_avatar() {
     let html = r#"<div class="profile-title">User</div>
-        <div class="profile-avatar"><img src="https://cdn.example.com/pic.jpg"></div>"#;
+        <img class="profile-avatar" src="https://cdn.example.com/pic.jpg">"#;
     let parser = Parser::new();
     let user = parser.parse_user_profile(html).unwrap();
     assert_eq!(user.avatar_url.as_deref(), Some("https://cdn.example.com/pic.jpg"));

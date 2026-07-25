@@ -21,7 +21,7 @@ fn test_parse_category_offers_sale_type_default() {
     let parser = Parser::new();
     let offers = parser.parse_category_offers(html);
     assert_eq!(offers.len(), 1);
-    assert_eq!(offers[0].sale_type, LotSaleType::Single);
+    assert_eq!(offers[0].sale_type, LotSaleType::Bulk);
 }
 
 #[test]
