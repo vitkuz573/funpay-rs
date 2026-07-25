@@ -1,4 +1,5 @@
 use funpay_sdk::parser::Parser;
+use funpay_sdk::models::Price;
 
 #[test]
 fn test_empty_html_game_list() {
@@ -20,7 +21,7 @@ fn test_malformed_html_offers() {
     let parser = Parser::new();
     let offers = parser.parse_category_offers(html);
     assert_eq!(offers.len(), 1);
-    assert_eq!(offers[0].price, 100.0);
+    assert_eq!(offers[0].price, Price(100.0));
 }
 
 #[test]
@@ -56,7 +57,7 @@ fn test_price_parsing_with_comma() {
     let offers = parser.parse_category_offers(html);
     assert_eq!(offers.len(), 1);
     // f64 parse fails on "1 250,50" format, defaults to 0.0
-    assert_eq!(offers[0].price, 0.0);
+    assert_eq!(offers[0].price, Price(0.0));
 }
 
 #[test]
@@ -69,7 +70,7 @@ fn test_price_with_thousand_separator() {
     let offers = parser.parse_category_offers(html);
     assert_eq!(offers.len(), 1);
     // f64 parse fails on "1 250" format, defaults to 0.0
-    assert_eq!(offers[0].price, 0.0);
+    assert_eq!(offers[0].price, Price(0.0));
 }
 
 #[test]
@@ -96,7 +97,7 @@ fn test_offer_missing_optional_fields() {
     let parser = Parser::new();
     let offers = parser.parse_category_offers(html);
     assert_eq!(offers.len(), 1);
-    assert_eq!(offers[0].price, 99.0);
+    assert_eq!(offers[0].price, Price(99.0));
     assert!(offers[0].server.is_none());
     assert!(offers[0].description.is_none());
 }
@@ -109,7 +110,7 @@ fn test_price_no_match() {
     let parser = Parser::new();
     let offers = parser.parse_category_offers(html);
     assert_eq!(offers.len(), 1);
-    assert_eq!(offers[0].price, 0.0);
+    assert_eq!(offers[0].price, Price(0.0));
 }
 
 #[test]

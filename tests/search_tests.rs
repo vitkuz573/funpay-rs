@@ -1,5 +1,5 @@
 use funpay_sdk::parser::Parser;
-use funpay_sdk::models::Server;
+use funpay_sdk::models::Price;
 
 #[test]
 fn test_parse_offers_from_page() {
@@ -11,7 +11,7 @@ fn test_parse_offers_from_page() {
     let parser = Parser::new();
     let offers = parser.parse_category_offers(html);
     assert_eq!(offers.len(), 1);
-    assert_eq!(offers[0].price, 150.0);
+    assert_eq!(offers[0].price, Price(150.0));
     assert_eq!(offers[0].server.as_deref(), Some("EU"));
 }
 
@@ -42,10 +42,4 @@ fn test_parse_offers_empty_page() {
     assert_eq!(offers.len(), 0);
 }
 
-#[test]
-fn test_server_newtype() {
-    let s = Server("EU".to_string());
-    assert_eq!(s.0, "EU");
-    assert_eq!(s.inner(), "EU");
-    assert_eq!(s.to_string(), "EU");
-}
+

@@ -1,17 +1,16 @@
 use std::collections::HashMap;
-use rust_decimal::Decimal;
 use tokio::sync::broadcast;
 use crate::models::OfferId;
 
 #[derive(Debug, Clone)]
 pub enum MonitorEvent {
-    PriceChanged { offer_id: OfferId, old_price: Decimal, new_price: Decimal },
+    PriceChanged { offer_id: OfferId, old_price: f64, new_price: f64 },
     NewOffer { offer_id: OfferId },
     OfferRemoved { offer_id: OfferId },
 }
 
 pub struct Monitor {
-    seen_offers: HashMap<OfferId, Decimal>,
+    seen_offers: HashMap<OfferId, f64>,
 }
 
 impl Monitor {
@@ -19,27 +18,27 @@ impl Monitor {
         Self { seen_offers: HashMap::new() }
     }
 
-    pub fn check_for_changes(&mut self, offers: Vec<(OfferId, Decimal)>) -> Vec<MonitorEvent> {
+    pub fn check_for_changes(&mut self, offers: Vec<(OfferId, f64)>) -> Vec<MonitorEvent> {
         let mut events = Vec::new();
-        let current: HashMap<OfferId, Decimal> = offers.into_iter().collect();
+        let current: HashMap<OfferId, f64> = offers.into_iter().collect();
 
         for (id, price) in &current {
             if let Some(old_price) = self.seen_offers.get(id) {
-                if (*old_price - price).abs() > Decimal::from(1).checked_div(Decimal::from(100)).unwrap_or_default() {
+                if (old_price - price).abs() > 0.01 {
                     events.push(MonitorEvent::PriceChanged {
-                        offer_id: id.clone(),
+                        offer_id: *id,
                         old_price: *old_price,
                         new_price: *price,
                     });
                 }
             } else {
-                events.push(MonitorEvent::NewOffer { offer_id: id.clone() });
+                events.push(MonitorEvent::NewOffer { offer_id: *id });
             }
         }
 
         for id in self.seen_offers.keys() {
             if !current.contains_key(id) {
-                events.push(MonitorEvent::OfferRemoved { offer_id: id.clone() });
+                events.push(MonitorEvent::OfferRemoved { offer_id: *id });
             }
         }
 
@@ -49,7 +48,7 @@ impl Monitor {
 
     pub fn spawn_monitoring(
         &self,
-        mut rx: broadcast::Receiver<Vec<(OfferId, Decimal)>>,
+        mut rx: broadcast::Receiver<Vec<(OfferId, f64)>>,
         event_tx: broadcast::Sender<MonitorEvent>,
     ) {
         let mut monitor = Monitor::new();

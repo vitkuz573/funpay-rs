@@ -34,7 +34,7 @@ async fn test_fetch_offers_real() {
     println!("{}: {} offers", game.title, offers.len());
 
     for offer in offers.iter().take(5) {
-        assert!(offer.price > 0.0);
+        assert!(offer.price.0 > 0.0);
     }
 }
 

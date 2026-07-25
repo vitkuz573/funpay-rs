@@ -1,38 +1,25 @@
 use crate::models::Offer;
-use rust_decimal::Decimal;
 use serde::Serialize;
 
 #[derive(Serialize)]
 struct FlatOffer {
     offer_id: String,
-    lot_id: String,
+    seller_id: String,
     server: String,
     description: String,
-    price: Decimal,
+    price: f64,
     currency: String,
-    stock: u32,
-    seller_id: String,
-    seller_name: String,
-    seller_rating: f64,
-    seller_reviews: u32,
-    seller_online: bool,
 }
 
 impl From<&Offer> for FlatOffer {
     fn from(o: &Offer) -> Self {
         Self {
-            offer_id: o.offer_id.0.clone(),
-            lot_id: o.lot_id.0.clone(),
-            server: o.server.0.clone(),
-            description: o.description.clone(),
-            price: o.price,
-            currency: o.currency.to_string(),
-            stock: o.stock,
-            seller_id: o.seller.user_id.0.clone(),
-            seller_name: o.seller.name.clone(),
-            seller_rating: o.seller.rating,
-            seller_reviews: o.seller.reviews,
-            seller_online: o.seller.online,
+            offer_id: o.id.to_string(),
+            seller_id: o.seller_id.to_string(),
+            server: o.server.clone().unwrap_or_default(),
+            description: o.description.clone().unwrap_or_default(),
+            price: *o.price.inner(),
+            currency: o.currency.clone(),
         }
     }
 }

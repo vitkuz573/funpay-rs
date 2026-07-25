@@ -2,7 +2,7 @@ use futures_util::StreamExt;
 use tokio::sync::broadcast;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
-use crate::error::FunPayError;
+use crate::error::{FunPayError, ParseError};
 
 /// Real-time offer monitor via FunPay WebSocket
 pub struct WsMonitor {
@@ -25,7 +25,7 @@ impl WsMonitor {
     pub async fn connect(&self) -> Result<broadcast::Receiver<WsEvent>, FunPayError> {
         let (ws_stream, _) = connect_async(&self.url)
             .await
-            .map_err(|e| FunPayError::WebSocket(e.to_string()))?;
+            .map_err(|e| FunPayError::Parse(ParseError::JsonParse(e.to_string())))?;
 
         let (_, mut read) = ws_stream.split();
         let (tx, rx) = broadcast::channel(256);
